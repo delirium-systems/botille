@@ -1,0 +1,29 @@
+name: Checks
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: delirium-systems
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Enable KVM
+        run: sudo chmod 666 /dev/kvm
+
+      - name: Run all checks
+        run: nix flake check --print-build-logs
