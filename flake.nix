@@ -4,6 +4,10 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {
@@ -22,6 +26,7 @@
       self,
       nixpkgs,
       flake-utils,
+      home-manager,
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
@@ -81,6 +86,8 @@
           # Mounting (overlay for writable /nix)
           pkgs.util-linux
           pkgs.fuse-overlayfs
+          # Home environment
+          home-manager.packages.${system}.home-manager
         ];
 
         # Nix configuration for single-user mode inside the container
@@ -94,6 +101,100 @@
           extra-substituters = https://delirium-systems.cachix.org
           extra-trusted-public-keys = delirium-systems.cachix.org-1:66ovNl3TR96B++WAvUK0U6nmrejRLR3DYoFzQbKnPHs=
         '';
+
+        # Home-manager activation package (built at Nix time, activated at container start)
+        hmActivation =
+          (home-manager.lib.homeManagerConfiguration {
+            inherit pkgs;
+            modules = [
+              {
+                home = {
+                  username = "user";
+                  homeDirectory = home;
+                  stateVersion = "25.11";
+                };
+
+                # No systemd in container
+                systemd.user.startServices = false;
+
+                xdg.enable = true;
+
+                programs.bash.enable = true;
+                programs.direnv.enable = true;
+                programs.direnv.nix-direnv.enable = true;
+
+                programs.delta = {
+                  enable = true;
+                  enableGitIntegration = true;
+                  options = {
+                    line-numbers = true;
+                    hunk-header-decoration-style = "";
+                  };
+                };
+
+                programs.git = {
+                  enable = true;
+
+                  lfs.enable = true;
+
+                  settings = {
+                    alias = {
+                      hist = ''log --pretty=format:"%C(dim yellow)%h %C(dim white)%ad %C(bold cyan)|%C(auto) %s %C(white)- %an%C(auto)%d%C(reset)" --graph --date=local'';
+                      list-changed-files = "show --pretty= --name-only";
+                      list-gone-branches = "! git branch -vv | grep ': gone]' | awk '{print $1}'";
+                      pushfwl = "push --force-with-lease";
+                    };
+                    core.commentchar = ";";
+                    pull.rebase = true;
+                    push = {
+                      autoSetupRemote = true;
+                      followTags = true;
+                    };
+                    fetch = {
+                      prune = true;
+                      pruneTags = true;
+                      all = true;
+                    };
+                    help.autocorrect = "prompt";
+                    rebase = {
+                      autoStash = true;
+                      updateRefs = true;
+                    };
+                    http.postBuffer = 1048576000;
+                    credential.helper = "store";
+                    merge = {
+                      conflictStyle = "zdiff3";
+                      tool = "nvim";
+                    };
+                    mergetool = {
+                      prompt = false;
+                      keepBackup = false;
+                      nvim.cmd = ''nvim -d -c "wincmd l" -c "norm gg]c" "$LOCAL" "$MERGED" "$REMOTE"'';
+                    };
+                    status.submoduleSummary = true;
+                    diff = {
+                      tool = "nvim";
+                      algorithm = "histogram";
+                      mnemonicPrefix = true;
+                      renames = true;
+                    };
+                    init.defaultBranch = "master";
+                    advice = {
+                      detachedHead = false;
+                      skippedCherryPicks = false;
+                    };
+                    rerere = {
+                      enabled = true;
+                      autoUpdate = true;
+                    };
+                    branch.sort = "-committerdate";
+                    tag.sort = "version:refname";
+                    commit.verbose = true;
+                  };
+                };
+              }
+            ];
+          }).activationPackage;
 
         # OCI hook: block LAN/private ranges using host-side iptables
         firewallScript = pkgs.writeShellScript "botille-block-lan.sh" ''
@@ -123,6 +224,7 @@
           rootPaths = containerPackages ++ [
             pkgs.dockerTools.fakeNss
             nixConf
+            hmActivation
           ];
         };
 
@@ -145,17 +247,31 @@
           # image only ships /nix/store, not /nix/var).
           mkdir -p /nix/var/nix/gcroots /nix/var/nix/db
 
-          # Ensure the nix db knows about all image store paths.
-          # Needed because the overlay upper layer may have a stale db copy
-          # that predates an image rebuild with new packages.
-          nix-store --load-db < ${imageClosureInfo}/registration
+          # Register image store paths in the nix db (only when image changed).
+          # nix-store --load-db is not idempotent — re-inserting existing refs
+          # hits a UNIQUE constraint in the SQLite Refs table. Guard with a
+          # marker so we only load once per image closure.
+          nix_db_marker="/nix/var/nix/db/.botille-closure"
+          if ! [ -f "$nix_db_marker" ] || [ "$(cat "$nix_db_marker")" != "${imageClosureInfo}" ]; then
+            nix-store --load-db < ${imageClosureInfo}/registration
+            printf '%s' "${imageClosureInfo}" > "$nix_db_marker"
+          fi
 
           # Protect image store paths from garbage collection.
           # imageClosureInfo references the entire image closure, so this
           # single GC root transitively keeps all image packages alive.
           ln -sfn ${imageClosureInfo} /nix/var/nix/gcroots/botille-image
 
-          # --- Ensure directories exist ---
+          # --- Activate home-manager (only when configuration changed) ---
+          hm_marker="${home}/.local/state/botille/hm-generation"
+          hm_generation="${hmActivation}"
+          if ! [ -f "$hm_marker" ] || [ "$(cat "$hm_marker")" != "$hm_generation" ]; then
+            "$hm_generation/activate"
+            mkdir -p "$(dirname "$hm_marker")"
+            printf '%s' "$hm_generation" > "$hm_marker"
+          fi
+
+          # --- Ensure directories exist (tool-specific, not managed by home-manager) ---
           mkdir -p /work \
             "${home}/.local/state/bash" \
             "${home}/.local/state/python" \
@@ -165,7 +281,8 @@
             "${home}/.config/npm" \
             "${home}/.cache/npm" \
             "${home}/.config/wget" \
-            "${home}/.local/state/gemini"
+            "${home}/.local/state/gemini" \
+            "${home}/.local/state/botille"
 
           exec "$@"
         '';
@@ -194,6 +311,7 @@
             WorkingDir = "/work";
             Env = [
               "PATH=${pkgs.lib.makeBinPath containerPackages}"
+              "USER=user"
               "HOME=${home}"
               "XDG_CONFIG_HOME=${home}/.config"
               "XDG_DATA_HOME=${home}/.local/share"
@@ -236,6 +354,16 @@
             if [ -t 0 ]; then
               tty_flag="-it"
             fi
+            # Forward host terminal identity so CLI tools (claude, delta, etc.)
+            # can detect the real emulator and enable full colour/highlighting.
+            term_env=""
+            if [ -n "''${TERM_PROGRAM:-}" ]; then
+              term_env="$term_env -e TERM_PROGRAM=$TERM_PROGRAM"
+            fi
+            if [ -n "''${TERM_PROGRAM_VERSION:-}" ]; then
+              term_env="$term_env -e TERM_PROGRAM_VERSION=$TERM_PROGRAM_VERSION"
+            fi
+
             # shellcheck disable=SC2086
             podman --hooks-dir "${hooksDir}" run $tty_flag --rm \
               --annotation io.botille.block-lan=true \
@@ -244,6 +372,7 @@
               --security-opt=no-new-privileges \
               --device /dev/fuse \
               --userns=keep-id \
+              $term_env \
               -v "$PWD:/work" \
               -v botille-home:${home} \
               -v botille-nix-overlay:/var/nix-overlay \
