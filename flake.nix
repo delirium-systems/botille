@@ -58,8 +58,8 @@
           pkgs.cachix
           pkgs.nix
           pkgs.cacert
-          pkgs.claude-code
-          pkgs.gemini-cli
+          pkgs.claude-code-bin
+          pkgs.gemini-cli-bin
           pkgs.copilot-cli
           pkgs.python3
           # Search & navigation
@@ -117,79 +117,96 @@
                 # No systemd in container
                 systemd.user.startServices = false;
 
-                xdg.enable = true;
-
-                programs.bash.enable = true;
-                programs.direnv.enable = true;
-                programs.direnv.nix-direnv.enable = true;
-
-                programs.delta = {
+                xdg = {
                   enable = true;
-                  enableGitIntegration = true;
-                  options = {
-                    line-numbers = true;
-                    hunk-header-decoration-style = "";
+                  configFile."claude/settings.json" = {
+                    force = true;
+                    text = builtins.toJSON {
+                      permissions = {
+                        allow = [
+                          "Bash(curl:*)"
+                          "Bash(wget:*)"
+                          "WebFetch"
+                          "WebSearch"
+                        ];
+                      };
+                    };
                   };
                 };
 
-                programs.git = {
-                  enable = true;
+                programs = {
+                  bash.enable = true;
+                  direnv.enable = true;
+                  direnv.nix-direnv.enable = true;
 
-                  lfs.enable = true;
+                  delta = {
+                    enable = true;
+                    enableGitIntegration = true;
+                    options = {
+                      line-numbers = true;
+                      hunk-header-decoration-style = "";
+                    };
+                  };
 
-                  settings = {
-                    alias = {
-                      hist = ''log --pretty=format:"%C(dim yellow)%h %C(dim white)%ad %C(bold cyan)|%C(auto) %s %C(white)- %an%C(auto)%d%C(reset)" --graph --date=local'';
-                      list-changed-files = "show --pretty= --name-only";
-                      list-gone-branches = "! git branch -vv | grep ': gone]' | awk '{print $1}'";
-                      pushfwl = "push --force-with-lease";
+                  git = {
+                    enable = true;
+
+                    lfs.enable = true;
+
+                    settings = {
+                      alias = {
+                        hist = ''log --pretty=format:"%C(dim yellow)%h %C(dim white)%ad %C(bold cyan)|%C(auto) %s %C(white)- %an%C(auto)%d%C(reset)" --graph --date=local'';
+                        list-changed-files = "show --pretty= --name-only";
+                        list-gone-branches = "! git branch -vv | grep ': gone]' | awk '{print $1}'";
+                        pushfwl = "push --force-with-lease";
+                      };
+                      core.commentchar = ";";
+                      pull.rebase = true;
+                      push = {
+                        autoSetupRemote = true;
+                        followTags = true;
+                      };
+                      fetch = {
+                        prune = true;
+                        pruneTags = true;
+                        all = true;
+                      };
+                      help.autocorrect = "prompt";
+                      rebase = {
+                        autoStash = true;
+                        updateRefs = true;
+                      };
+                      http.postBuffer = 1048576000;
+                      credential.helper = "store";
+                      merge = {
+                        conflictStyle = "zdiff3";
+                        tool = "nvim";
+                      };
+                      mergetool = {
+                        prompt = false;
+                        keepBackup = false;
+                        nvim.cmd = ''nvim -d -c "wincmd l" -c "norm gg]c" "$LOCAL" "$MERGED" "$REMOTE"'';
+                      };
+                      status.submoduleSummary = true;
+                      diff = {
+                        tool = "nvim";
+                        algorithm = "histogram";
+                        mnemonicPrefix = true;
+                        renames = true;
+                      };
+                      init.defaultBranch = "master";
+                      advice = {
+                        detachedHead = false;
+                        skippedCherryPicks = false;
+                      };
+                      rerere = {
+                        enabled = true;
+                        autoUpdate = true;
+                      };
+                      branch.sort = "-committerdate";
+                      tag.sort = "version:refname";
+                      commit.verbose = true;
                     };
-                    core.commentchar = ";";
-                    pull.rebase = true;
-                    push = {
-                      autoSetupRemote = true;
-                      followTags = true;
-                    };
-                    fetch = {
-                      prune = true;
-                      pruneTags = true;
-                      all = true;
-                    };
-                    help.autocorrect = "prompt";
-                    rebase = {
-                      autoStash = true;
-                      updateRefs = true;
-                    };
-                    http.postBuffer = 1048576000;
-                    credential.helper = "store";
-                    merge = {
-                      conflictStyle = "zdiff3";
-                      tool = "nvim";
-                    };
-                    mergetool = {
-                      prompt = false;
-                      keepBackup = false;
-                      nvim.cmd = ''nvim -d -c "wincmd l" -c "norm gg]c" "$LOCAL" "$MERGED" "$REMOTE"'';
-                    };
-                    status.submoduleSummary = true;
-                    diff = {
-                      tool = "nvim";
-                      algorithm = "histogram";
-                      mnemonicPrefix = true;
-                      renames = true;
-                    };
-                    init.defaultBranch = "master";
-                    advice = {
-                      detachedHead = false;
-                      skippedCherryPicks = false;
-                    };
-                    rerere = {
-                      enabled = true;
-                      autoUpdate = true;
-                    };
-                    branch.sort = "-committerdate";
-                    tag.sort = "version:refname";
-                    commit.verbose = true;
                   };
                 };
               }
@@ -246,6 +263,13 @@
           # Bootstrap /nix/var structure (missing on first run since the
           # image only ships /nix/store, not /nix/var).
           mkdir -p /nix/var/nix/gcroots /nix/var/nix/db
+
+          # Move the Nix SQLite database off fuse-overlayfs onto the real
+          # volume filesystem. SQLite needs POSIX locking/fsync semantics
+          # that overlayfs cannot provide, causing "database disk image is
+          # malformed" errors during writes (e.g. nix store gc).
+          mkdir -p /var/nix-overlay/db
+          mount --bind /var/nix-overlay/db /nix/var/nix/db
 
           # Register image store paths in the nix db (only when image changed).
           # nix-store --load-db is not idempotent — re-inserting existing refs
