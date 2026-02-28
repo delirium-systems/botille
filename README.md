@@ -15,10 +15,10 @@ Run coding agents inside a sandboxed, LAN-isolated rootless Podman container. Ev
 
 ```sh
 # Drop into a containerized shell with claude on $PATH
-nix run 'github:delirium-systems/botille#run'
+nix run 'github:delirium-systems/botille'
 
 # Pass a command to run inside the container (replaces default /bin/bash)
-nix run 'github:delirium-systems/botille#run' -- claude
+nix run 'github:delirium-systems/botille' -- claude
 ```
 
 Your current directory is mounted at `/work` inside the container. File changes persist on the host; credentials and installed packages persist in Podman volumes.
@@ -30,7 +30,7 @@ Pre-built binaries are available from the `delirium-systems` cachix cache — th
 To use `botille` as a short command, add an alias to your shell config (`~/.bashrc`, `~/.zshrc`, etc.):
 
 ```sh
-alias botille="nix run 'github:delirium-systems/botille#run' --"
+alias botille="nix run 'github:delirium-systems/botille' --"
 ```
 
 Then:
@@ -39,6 +39,42 @@ Then:
 botille          # drop into a shell
 botille claude   # run claude directly
 ```
+
+### Customising home-manager
+
+To add your own home-manager configuration (git identity, extra packages, shell aliases, etc.) without forking this repository, create a wrapper `flake.nix` in a directory of your choice:
+
+```nix
+{
+  inputs.botille.url = "github:delirium-systems/botille";
+
+  outputs = { self, botille }: {
+    apps.x86_64-linux.default = botille.lib.mkApp {
+      system = "x86_64-linux";
+      extraHomeManagerModules = [
+        {
+          programs.git = {
+            userEmail = "you@example.com";
+            userName  = "Your Name";
+          };
+        }
+        # or point to a separate file:
+        # ./extra-hm.nix
+      ];
+    };
+  };
+}
+```
+
+Then run your customised container with:
+
+```sh
+nix run .
+```
+
+`extraHomeManagerModules` are appended after the base configuration, so they can override any base setting using the standard home-manager module system (e.g. `lib.mkForce`).
+
+> **Note:** customised images are not in the `delirium-systems` cachix cache and will be built locally on first use.
 
 ### Prerequisites
 

@@ -10,7 +10,7 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI) inside a Nix-
 ┌─────────────────────────────────────────────────┐
 │  Host (unprivileged user)                       │
 │                                                 │
-│  $ nix run 'delirium-systems/botille#run'             │
+│  $ nix run 'delirium-systems/botille'                  │
 │       │                                         │
 │       ▼                                         │
 │  rootless podman run ...                        │
@@ -29,7 +29,7 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI) inside a Nix-
 
 ## Core Components
 
-### 1. Nix Flake App (`#run`)
+### 1. Nix Flake App (default)
 - A shell script wrapped as a Nix app (`writeShellApplication`)
 - Container image path is baked in at Nix evaluation time (no runtime `nix build`)
 - Tracks the loaded image's Nix store path in `~/.local/state/botille/loaded-image`; skips `podman load` if the same image is already present, reloads only when the store path changes
@@ -78,10 +78,10 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI) inside a Nix-
 
 ```sh
 # Drop into a containerized shell with claude available
-nix run 'delirium-systems/botille#run'
+nix run 'delirium-systems/botille'
 
 # All args after -- are passed as the container command (replacing default /bin/bash)
-nix run 'delirium-systems/botille#run' -- claude
+nix run 'delirium-systems/botille' -- claude
 ```
 
 ### 7. Binary Caching (Cachix)
@@ -107,7 +107,7 @@ flake.nix
 │       ├── bash, git, coreutils, findutils, gnugrep, gnused, gawk
 │       ├── which, less, neovim, python3, nodejs, ripgrep, fd, jq, …
 │       └── fakeNss, /etc/nix/nix.conf, /tmp, /usr/bin/env
-├── apps.run              → shell script: podman load + podman run
+├── apps.default          → shell script: podman load + podman run
 ├── checks                → statix, deadnix, ai-tools (NixOS VM test)
 ├── formatter             → nixfmt
 └── devShells.default     → dev environment (podman, nix)
@@ -115,7 +115,7 @@ flake.nix
 
 ## Execution Flow
 
-1. User runs `nix run 'delirium-systems/botille#run'`
+1. User runs `nix run 'delirium-systems/botille'`
 2. Nix builds the launcher script (which depends on the container image, so both are built/cached)
 3. Script checks if the current image (by Nix store path) is already loaded; if not, removes the old image and loads the new one
 4. Script runs container with:
