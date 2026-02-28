@@ -1,7 +1,7 @@
 # Home-manager configuration baked into the Botille container image.
 # This module is loaded as the base configuration; callers can append
 # extraHomeManagerModules via mkBotille / lib.mkApp to override anything here.
-{ ... }:
+_:
 {
   home = {
     username = "user";
