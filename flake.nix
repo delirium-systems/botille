@@ -116,144 +116,9 @@
             (home-manager.lib.homeManagerConfiguration {
               inherit pkgs;
               modules = [
-                {
-                  home = {
-                    username = "user";
-                    homeDirectory = home;
-                    stateVersion = "25.11";
-                  };
-
-                  # No systemd in container
-                  systemd.user.startServices = false;
-
-                  xdg = {
-                    enable = true;
-                    configFile."claude/settings.json" = {
-                      force = true;
-                      text = builtins.toJSON {
-                        permissions = {
-                          allow = [
-                            "Bash(curl:*)"
-                            "Bash(wget:*)"
-                            "WebFetch"
-                            "WebSearch"
-                          ];
-                        };
-                      };
-                    };
-                  };
-
-                  programs = {
-                    bash.enable = true;
-
-                    starship = {
-                      enable = true;
-                      enableBashIntegration = true;
-                      settings = {
-                        add_newline = false;
-                        format = "[botille](bold blue) $directory$git_branch$git_status$cmd_duration$status$character";
-
-                        character = {
-                          success_symbol = "[❯](bold purple)";
-                          error_symbol = "[❯](bold red)";
-                        };
-
-                        directory = {
-                          style = "bold cyan";
-                          truncate_to_repo = false;
-                          truncation_length = 0;
-                          fish_style_pwd_dir_length = 0;
-                        };
-
-                        git_branch = {
-                          format = "[$symbol$branch(:$remote_branch)]($style) ";
-                          symbol = "⎇ ";
-                          style = "bold purple";
-                        };
-
-                        git_status.style = "bold red";
-
-                        status.disabled = false;
-
-                        cmd_duration.min_time = 3000;
-                      };
-                    };
-
-                    direnv.enable = true;
-                    direnv.nix-direnv.enable = true;
-
-                    delta = {
-                      enable = true;
-                      enableGitIntegration = true;
-                      options = {
-                        line-numbers = true;
-                        hunk-header-decoration-style = "";
-                      };
-                    };
-
-                    git = {
-                      enable = true;
-
-                      lfs.enable = true;
-
-                      settings = {
-                        alias = {
-                          hist = ''log --pretty=format:"%C(dim yellow)%h %C(dim white)%ad %C(bold cyan)|%C(auto) %s %C(white)- %an%C(auto)%d%C(reset)" --graph --date=local'';
-                          list-changed-files = "show --pretty= --name-only";
-                          list-gone-branches = "! git branch -vv | grep ': gone]' | awk '{print $1}'";
-                          pushfwl = "push --force-with-lease";
-                        };
-                        core.commentchar = ";";
-                        pull.rebase = true;
-                        push = {
-                          autoSetupRemote = true;
-                          followTags = true;
-                        };
-                        fetch = {
-                          prune = true;
-                          pruneTags = true;
-                          all = true;
-                        };
-                        help.autocorrect = "prompt";
-                        rebase = {
-                          autoStash = true;
-                          updateRefs = true;
-                        };
-                        http.postBuffer = 1048576000;
-                        credential.helper = "store";
-                        merge = {
-                          conflictStyle = "zdiff3";
-                          tool = "nvim";
-                        };
-                        mergetool = {
-                          prompt = false;
-                          keepBackup = false;
-                          nvim.cmd = ''nvim -d -c "wincmd l" -c "norm gg]c" "$LOCAL" "$MERGED" "$REMOTE"'';
-                        };
-                        status.submoduleSummary = true;
-                        diff = {
-                          tool = "nvim";
-                          algorithm = "histogram";
-                          mnemonicPrefix = true;
-                          renames = true;
-                        };
-                        init.defaultBranch = "master";
-                        advice = {
-                          detachedHead = false;
-                          skippedCherryPicks = false;
-                        };
-                        rerere = {
-                          enabled = true;
-                          autoUpdate = true;
-                        };
-                        branch.sort = "-committerdate";
-                        tag.sort = "version:refname";
-                        commit.verbose = true;
-                      };
-                    };
-                  };
-                }
-              ] ++ extraHomeManagerModules;
+                ./home.nix
+              ]
+              ++ extraHomeManagerModules;
             }).activationPackage;
 
           # OCI hook: block LAN/private ranges using host-side iptables
@@ -478,15 +343,16 @@
 
         checks = {
           statix = pkgs.runCommand "statix" { nativeBuildInputs = [ pkgs.statix ]; } ''
-            statix check ${self}/flake.nix
+            statix check ${self}
             touch $out
           '';
 
           deadnix = pkgs.runCommand "deadnix" { nativeBuildInputs = [ pkgs.deadnix ]; } ''
-            deadnix --fail ${self}/flake.nix
+            deadnix --fail ${self}
             touch $out
           '';
-        } // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
+        }
+        // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
           ai-tools = pkgs.testers.runNixOSTest {
             name = "botille-ai-tools";
             nodes.machine = {
