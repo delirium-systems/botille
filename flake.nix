@@ -92,6 +92,7 @@
 
         # Nix configuration for single-user mode inside the container
         nixConf = pkgs.writeTextDir "etc/nix/nix.conf" ''
+          build-users-group =
           max-jobs = auto
           auto-optimise-store = true
           use-xdg-base-directories = true
@@ -287,6 +288,7 @@
           ln -sfn ${imageClosureInfo} /nix/var/nix/gcroots/botille-image
 
           # --- Activate home-manager (only when configuration changed) ---
+          mkdir -p "${home}/.local/state/nix/profiles"
           hm_marker="${home}/.local/state/botille/hm-generation"
           hm_generation="${hmActivation}"
           if ! [ -f "$hm_marker" ] || [ "$(cat "$hm_marker")" != "$hm_generation" ]; then
