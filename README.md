@@ -6,7 +6,7 @@ Run coding agents inside a sandboxed, LAN-isolated rootless Podman container. Ev
 
 ## 🔒 What it does
 
-- 📦 Builds a reproducible OCI container image with Claude Code, Gemini CLI, GitHub Copilot CLI, Nix, git, and common dev tools
+- 📦 Builds a reproducible OCI container image with Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi, OpenClaw, Nix, git, and common dev tools
 - 🌐 Blocks all LAN/private network access via iptables OCI hooks — only public internet allowed
 - 🔑 Persists credentials and Nix store across runs via named Podman volumes
 - 🧑 Runs rootless — no daemon, no root, your UID mapped into the container

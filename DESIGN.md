@@ -2,7 +2,7 @@
 
 ## Goal
 
-Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI) inside a Nix-built container using rootless Podman, with the current working directory mounted at `/work`. Invoked purely through `nix run` — no separate binary to install.
+Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi, OpenClaw) inside a Nix-built container using rootless Podman, with the current working directory mounted at `/work`. Invoked purely through `nix run` — no separate binary to install.
 
 ## Architecture
 
@@ -21,7 +21,7 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI) inside a Nix-
 │  │  /home/user    ← named volume          │    │
 │  │  /nix          ← overlay (named vol)   │    │
 │  │                                         │    │
-│  │  nix, claude, gemini, copilot, git …   │    │
+│  │  nix, claude, gemini, copilot, opencode, pi, openclaw, git …   │    │
 │  │                                         │    │
 │  └─────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────┘
@@ -37,7 +37,8 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI) inside a Nix-
 
 ### 2. Container Image (Nix-built)
 - Built with `pkgs.dockerTools.buildLayeredImage`
-- Contains: Nix, Claude Code, Gemini CLI, Copilot CLI, bash, git, coreutils, findutils, gnugrep, gnused, gawk, which, less, neovim, iproute2, curl, wget, direnv, nix-direnv, cachix, python3, ripgrep, fd, tree, file, jq, diffutils, unzip, gnutar, gh, openssh, nodejs, rsync, tmux, man
+- Contains: Nix, Claude Code, Gemini CLI, Copilot CLI, OpenCode, Pi, OpenClaw, bash, git, coreutils, findutils, gnugrep, gnused, gawk, which, less, neovim, iproute2, curl, wget, direnv, nix-direnv, cachix, python3, ripgrep, fd, tree, file, jq, diffutils, unzip, gnutar, gh, openssh, nodejs, rsync, tmux, man
+- Agents sourced from [numtide/llm-agents.nix](https://github.com/numtide/llm-agents.nix) (auto-updated daily)
 - Reproducible — fully defined in `flake.nix`
 
 ### 3. Nix Store Persistence (Overlay)
@@ -85,7 +86,7 @@ nix run 'delirium-systems/botille' -- claude
 ```
 
 ### 7. Binary Caching (Cachix)
-- Flake `nixConfig` declares `delirium-systems` and `nix-community` cachix caches as `extra-substituters` — users with `accept-flake-config = true` get pre-built binaries automatically
+- Flake `nixConfig` declares `delirium-systems`, `nix-community`, and `numtide` cachix caches as `extra-substituters` — users with `accept-flake-config = true` get pre-built binaries automatically
 - CI (GitHub Actions) pushes all newly-built store paths to the `delirium-systems` cache via `cachix/cachix-action`
 - The in-container `nix.conf` also includes both caches, so `nix build`/`nix shell` inside the container benefit from the same binary cache
 
@@ -93,7 +94,7 @@ nix run 'delirium-systems/botille' -- claude
 
 - **Everything is Nix** — flake app, container image, no separate build tool
 - **Container runtime:** Rootless Podman (no Docker daemon, no root required)
-- **Agents:** Claude Code, Gemini CLI, GitHub Copilot CLI (all from nixpkgs)
+- **Agents:** Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi, OpenClaw — all from [numtide/llm-agents.nix](https://github.com/numtide/llm-agents.nix)
 - **Nix inside container:** allows user/agent to install additional tools on the fly
 
 ## Nix Flake Structure
@@ -103,7 +104,7 @@ flake.nix
 ├── packages.container    → OCI image (dockerTools.buildLayeredImage)
 │   └── contents:
 │       ├── nix, cachix, direnv, nix-direnv
-│       ├── claude-code, gemini-cli, copilot-cli
+│       ├── claude-code, gemini-cli, copilot-cli, opencode, pi, openclaw
 │       ├── bash, git, coreutils, findutils, gnugrep, gnused, gawk
 │       ├── which, less, neovim, python3, nodejs, ripgrep, fd, jq, …
 │       └── fakeNss, /etc/nix/nix.conf, /tmp, /usr/bin/env
@@ -127,7 +128,7 @@ flake.nix
 5. OCI hook fires at `createContainer` stage, applying iptables LAN-blocking rules using host-side binaries
 6. Podman drops `CAP_NET_ADMIN`/`NET_RAW` and starts the container process
 7. Entrypoint registers image store paths in the Nix DB and pins a GC root
-8. User lands in a shell with `claude`, `gemini`, `copilot`, `nix`, `git` on `$PATH`, working dir `/work`
+8. User lands in a shell with `claude`, `gemini`, `copilot`, `opencode`, `pi`, `openclaw`, `nix`, `git` on `$PATH`, working dir `/work`
 8. On exit, file changes persist in host `cwd`; home directory and nix store persist in volumes
 
 ## Volume Layout

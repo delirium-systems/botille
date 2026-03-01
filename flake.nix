@@ -8,15 +8,21 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    llm-agents = {
+      url = "github:numtide/llm-agents.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {
     extra-substituters = [
       "https://delirium-systems.cachix.org"
+      "https://cache.numtide.com"
       "https://nix-community.cachix.org"
     ];
     extra-trusted-public-keys = [
       "delirium-systems.cachix.org-1:66ovNl3TR96B++WAvUK0U6nmrejRLR3DYoFzQbKnPHs="
+      "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
       "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
     ];
   };
@@ -27,6 +33,7 @@
       nixpkgs,
       flake-utils,
       home-manager,
+      llm-agents,
     }:
     let
       # Core builder — wraps all per-system derivations so that both
@@ -64,9 +71,12 @@
             pkgs.cachix
             pkgs.nix
             pkgs.cacert
-            pkgs.claude-code-bin
-            pkgs.gemini-cli-bin
-            pkgs.copilot-cli
+            llm-agents.packages.${system}.claude-code
+            llm-agents.packages.${system}.gemini-cli
+            llm-agents.packages.${system}.copilot-cli
+            llm-agents.packages.${system}.opencode
+            llm-agents.packages.${system}.pi
+            llm-agents.packages.${system}.openclaw
             pkgs.python3
             # Search & navigation
             pkgs.ripgrep
@@ -376,6 +386,18 @@
               with subtest("copilot-cli"):
                   output = machine.succeed("${pkgs.lib.getExe launcher} copilot --version")
                   print(f"copilot-cli: {output.strip()}")
+
+              with subtest("opencode"):
+                  output = machine.succeed("${pkgs.lib.getExe launcher} opencode --version")
+                  print(f"opencode: {output.strip()}")
+
+              with subtest("pi-coding-agent"):
+                  output = machine.succeed("${pkgs.lib.getExe launcher} pi --version")
+                  print(f"pi-coding-agent: {output.strip()}")
+
+              with subtest("openclaw"):
+                  output = machine.succeed("${pkgs.lib.getExe launcher} openclaw --version")
+                  print(f"openclaw: {output.strip()}")
             '';
           };
         };
