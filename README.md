@@ -19,6 +19,10 @@ nix run 'github:delirium-systems/botille'
 
 # Pass a command to run inside the container (replaces default /bin/bash)
 nix run 'github:delirium-systems/botille' -- claude
+
+# Disable LAN restrictions (allow access to private/LAN IP ranges)
+nix run 'github:delirium-systems/botille' -- --allow-lan
+nix run 'github:delirium-systems/botille' -- --allow-lan claude
 ```
 
 Your current directory is mounted at `/work` inside the container. File changes persist on the host; credentials and installed packages persist in Podman volumes.
@@ -36,8 +40,9 @@ alias botille="nix run 'github:delirium-systems/botille' --"
 Then:
 
 ```sh
-botille          # drop into a shell
-botille claude   # run claude directly
+botille               # drop into a shell
+botille claude        # run claude directly
+botille --allow-lan   # drop into a shell with LAN access enabled
 ```
 
 ### Customising home-manager

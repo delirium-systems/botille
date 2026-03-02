@@ -307,9 +307,24 @@
                 term_env="$term_env -e TERM_PROGRAM_VERSION=$TERM_PROGRAM_VERSION"
               fi
 
+              # Strip --allow-lan from args forwarded to the container
+              allow_lan=false
+              container_args=()
+              for arg in "$@"; do
+                if [ "$arg" = "--allow-lan" ]; then
+                  allow_lan=true
+                else
+                  container_args+=("$arg")
+                fi
+              done
+              lan_annotation="--annotation io.botille.block-lan=true"
+              if [ "$allow_lan" = true ]; then
+                lan_annotation=""
+              fi
+
               # shellcheck disable=SC2086
               podman --hooks-dir "${hooksDir}" run $tty_flag --rm \
-                --annotation io.botille.block-lan=true \
+                $lan_annotation \
                 --dns=1.1.1.1 --dns=1.0.0.1 \
                 --cap-add=SYS_ADMIN --cap-drop=NET_ADMIN,NET_RAW \
                 --security-opt=no-new-privileges \
@@ -319,7 +334,7 @@
                 -v "$PWD:/work" \
                 -v botille-home:${home} \
                 -v botille-nix-overlay:/var/nix-overlay \
-                botille:latest "$@"
+                botille:latest "''${container_args[@]}"
             '';
           };
 

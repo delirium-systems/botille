@@ -68,6 +68,7 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi,
 - Hook is annotation-gated (`io.botille.block-lan=true`) so it only fires for botille containers
 - If the hook fails, container creation aborts (fail-safe)
 - Result: container can reach the public internet (Claude API) but not the LAN; rules are immutable from inside
+- Pass `--allow-lan` to the launcher to omit the annotation and skip the hook entirely, granting full LAN access for that run
 
 ### 6. Guardrails
 - Rootless Podman — no daemon, no root privileges, runs entirely as the calling user
@@ -83,6 +84,10 @@ nix run 'delirium-systems/botille'
 
 # All args after -- are passed as the container command (replacing default /bin/bash)
 nix run 'delirium-systems/botille' -- claude
+
+# Disable LAN restrictions for this run (--allow-lan is consumed by the launcher, not forwarded to the container)
+nix run 'delirium-systems/botille' -- --allow-lan
+nix run 'delirium-systems/botille' -- --allow-lan claude
 ```
 
 ### 7. Binary Caching (Cachix)
