@@ -64,6 +64,7 @@
             pkgs.less
             pkgs.neovim
             pkgs.iproute2
+            pkgs.iputils
             pkgs.curl
             pkgs.wget
             pkgs.direnv
@@ -99,9 +100,17 @@
             pkgs.tmux
             pkgs.man
             pkgs.ncurses
-            # Mounting (overlay for writable /nix)
+            # Network analysis
+            pkgs.nmap
+            pkgs.tcpdump
+            pkgs.wireshark-cli
+            pkgs.netcat-gnu
+            pkgs.traceroute
+            pkgs.dnsutils
+            pkgs.whois
+            pkgs.mtr
+            # Needed for mount --bind in the entrypoint
             pkgs.util-linux
-            pkgs.fuse-overlayfs
             pkgs.starship
             # Home environment
             home-manager.packages.${system}.home-manager
@@ -167,36 +176,32 @@
           entrypoint = pkgs.writeShellScript "entrypoint.sh" ''
             set -euo pipefail
 
-            # Set up writable /nix via overlay.
-            # Bind-mount captures the image's read-only /nix before the overlay
-            # hides it. The volume at /var/nix-overlay persists writes across runs.
-            # Uses fuse-overlayfs because native kernel overlayfs cannot do
-            # overlay-on-overlay in user namespaces (Podman's root fs is already
-            # an overlay from the storage driver).
-            mount --bind /nix /nix-lower
-            fuse-overlayfs \
-              -o squash_to_uid="$(id -u)",squash_to_gid="$(id -g)",lowerdir=/nix-lower,upperdir=/var/nix-overlay/upper,workdir=/var/nix-overlay/work \
-              /nix
-
-            # Bootstrap /nix/var structure (missing on first run since the
-            # image only ships /nix/store, not /nix/var).
-            mkdir -p /nix/var/nix/gcroots /nix/var/nix/db
-
-            # Move the Nix SQLite database off fuse-overlayfs onto the real
-            # volume filesystem. SQLite needs POSIX locking/fsync semantics
-            # that overlayfs cannot provide, causing "database disk image is
-            # malformed" errors during writes (e.g. nix store gc).
-            mkdir -p /var/nix-overlay/db
-            mount --bind /var/nix-overlay/db /nix/var/nix/db
-
-            # Register image store paths in the nix db (only when image changed).
-            # nix-store --load-db is not idempotent — re-inserting existing refs
-            # hits a UNIQUE constraint in the SQLite Refs table. Guard with a
-            # marker so we only load once per image closure.
-            nix_db_marker="/nix/var/nix/db/.botille-closure"
-            if ! [ -f "$nix_db_marker" ] || [ "$(cat "$nix_db_marker")" != "${imageClosureInfo}" ]; then
+            # Set up writable /nix by copying the image's store into a persistent
+            # volume on first run (or when the image changes), then bind-mounting
+            # the volume over /nix.
+            #
+            # cp --reflink=auto clones the tree instantly on CoW filesystems
+            # (btrfs, xfs); falls back to a regular copy on ext4 etc.  This
+            # replaces fuse-overlayfs, which caused CPU saturation when Nix wrote
+            # large file trees (e.g. a nixpkgs source) through FUSE — and also
+            # required working around SQLite locking issues on overlayfs.
+            nix_vol="/var/nix-store"
+            nix_data="$nix_vol/nix"
+            nix_marker="$nix_vol/.botille-image"
+            if ! [ -f "$nix_marker" ] || [ "$(cat "$nix_marker")" != "${imageClosureInfo}" ]; then
+              echo "Initialising Nix store (first run or image update)…" >&2
+              chmod -R u+w "$nix_data" 2>/dev/null || true
+              rm -rf "$nix_data"
+              cp --reflink=auto -a /nix "$nix_vol/"
+              mount --bind "$nix_data" /nix
+              mkdir -p /nix/var/nix/gcroots /nix/var/nix/db
+              # nix-store --load-db is not idempotent — re-inserting existing
+              # refs hits a UNIQUE constraint. The marker is written only after
+              # it succeeds, so a crash here causes a clean re-init next run.
               nix-store --load-db < ${imageClosureInfo}/registration
-              printf '%s' "${imageClosureInfo}" > "$nix_db_marker"
+              printf '%s' "${imageClosureInfo}" > "$nix_marker"
+            else
+              mount --bind "$nix_data" /nix
             fi
 
             # Protect image store paths from garbage collection.
@@ -241,9 +246,9 @@
             ];
 
             fakeRootCommands = ''
-              mkdir -p tmp work .${home} usr/bin var/nix-overlay/upper var/nix-overlay/work nix-lower
+              mkdir -p tmp work .${home} usr/bin var/nix-store
               chmod 1777 tmp
-              chmod 777 work .${home} var/nix-overlay var/nix-overlay/upper var/nix-overlay/work nix-lower
+              chmod 777 work .${home} var/nix-store
               mkdir -p nix/store nix/var
               ln -s ${pkgs.coreutils}/bin/env usr/bin/env
             '';
@@ -328,12 +333,11 @@
                 --dns=1.1.1.1 --dns=1.0.0.1 \
                 --cap-add=SYS_ADMIN --cap-drop=NET_ADMIN,NET_RAW \
                 --security-opt=no-new-privileges \
-                --device /dev/fuse \
                 --userns=keep-id \
                 $term_env \
                 -v "$PWD:/work" \
                 -v botille-home:${home} \
-                -v botille-nix-overlay:/var/nix-overlay \
+                -v botille-nix:/var/nix-store \
                 botille:latest "''${container_args[@]}"
             '';
           };
@@ -383,7 +387,7 @@
             nodes.machine = {
               virtualisation = {
                 podman.enable = true;
-                diskSize = 8192;
+                diskSize = 32768;
                 memorySize = 2048;
               };
             };
@@ -418,13 +422,6 @@
         };
 
         formatter = pkgs.nixfmt;
-
-        devShells.default = pkgs.mkShell {
-          packages = [
-            pkgs.podman
-            pkgs.nix
-          ];
-        };
       }
     )
     // {
