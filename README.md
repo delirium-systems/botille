@@ -81,6 +81,14 @@ nix run .
 
 > **Note:** customised images are not in the `delirium-systems` cachix cache and will be built locally on first use.
 
+## Security
+
+The primary security boundary is the **rootless Podman container**: the agent runs as an unprivileged user with no host network access to LAN/private ranges, and only the working directory is bind-mounted.
+
+Claude Code's permission rules (`~/.config/claude/settings.json`) provide a secondary, **advisory** layer. `Read` denies for credential paths (`.ssh`, `.aws`, `.gnupg`, etc.) are reliably enforced by the Read tool. `Bash` deny rules match on literal argument strings only — they do not survive shell expansion, variable indirection, or `~` aliasing, so they prevent accidental access but are not a hard security boundary. Allowed Bash commands such as `curl`, `cp`, and `openssl` can still reach sensitive paths if given explicit instructions to do so.
+
+**Do not rely on the permission rules to protect secrets.** Keep sensitive files out of the bind-mounted working directory, and treat anything inside the container as potentially visible to the agent.
+
 ### Prerequisites
 
 - [Nix](https://nixos.org/) (with flakes enabled)
