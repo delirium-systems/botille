@@ -246,8 +246,8 @@
             ];
 
             fakeRootCommands = ''
-              mkdir -p tmp work .${home} usr/bin var/nix-store
-              chmod 1777 tmp
+              mkdir -p tmp var/tmp work .${home} usr/bin var/nix-store
+              chmod 1777 tmp var/tmp
               chmod 777 work .${home} var/nix-store
               mkdir -p nix/store nix/var
               ln -s ${pkgs.coreutils}/bin/env usr/bin/env
