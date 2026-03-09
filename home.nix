@@ -16,6 +16,8 @@ _: {
     configFile."claude/settings.json" = {
       force = true;
       text = builtins.toJSON {
+        model = "claude-opus-4-6";
+        reasoning_effort = "high";
         permissions = {
           deny = [
             "Bash(* /home/user/.ssh*)"
@@ -56,6 +58,7 @@ _: {
             "Bash(cabal:*)"
             "Bash(cachix:*)"
             "Bash(cargo:*)"
+            "Bash(cd:*)"
             "Bash(cat:*)"
             "Bash(chmod:*)"
             "Bash(chown:*)"
