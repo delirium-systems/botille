@@ -18,6 +18,14 @@ _: {
       text = builtins.toJSON {
         model = "claude-opus-4-6";
         reasoning_effort = "high";
+        projects = {
+          "/work" = {
+            allowedTools = [];
+            hasTrustDialogAccepted = true;
+            hasCompletedOnboarding = true;
+            hasTrustDialogHooksAccepted = true;
+          };
+        };
         permissions = {
           deny = [
             "Bash(* /home/user/.ssh*)"

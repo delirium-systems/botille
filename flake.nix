@@ -289,14 +289,19 @@
             name = "botille-run";
             runtimeInputs = [ pkgs.podman ];
             text = ''
+              image="botille:latest"
               marker_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/botille"
               marker_file="$marker_dir/loaded-image"
               nix_store_path="${container}"
-              if ! [ -f "$marker_file" ] || [ "$(cat "$marker_file")" != "$nix_store_path" ]; then
-                podman rmi botille:latest 2>/dev/null || true
+              if ! [ -f "$marker_file" ] || [ "$(cat "$marker_file")" != "$nix_store_path" ] || ! podman image exists "$image"; then
+                echo "botille: loading image from $nix_store_path" >&2
+                podman rmi "$image" 2>/dev/null || true
                 podman load < "$nix_store_path"
                 mkdir -p "$marker_dir"
                 printf '%s' "$nix_store_path" > "$marker_file"
+                echo "botille: image loaded" >&2
+              else
+                echo "botille: image up to date" >&2
               fi
               tty_flag=""
               if [ -t 0 ]; then
@@ -327,6 +332,7 @@
                 lan_annotation=""
               fi
 
+              echo "botille: starting container" >&2
               # shellcheck disable=SC2086
               podman --hooks-dir "${hooksDir}" run $tty_flag --rm \
                 $lan_annotation \
@@ -338,7 +344,7 @@
                 -v "$PWD:/work" \
                 -v botille-home:${home} \
                 -v botille-nix:/var/nix-store \
-                botille:latest "''${container_args[@]}"
+                "$image" "''${container_args[@]}"
             '';
           };
 
