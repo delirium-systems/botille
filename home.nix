@@ -18,6 +18,7 @@ _: {
       text = builtins.toJSON {
         model = "claude-opus-4-6";
         reasoning_effort = "high";
+        defaultMode = "bypassPermissions";
         projects = {
           "/work" = {
             allowedTools = [];

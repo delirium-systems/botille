@@ -332,9 +332,19 @@
                 lan_annotation=""
               fi
 
+              cidfile=$(mktemp -u "/tmp/botille-cid.XXXXXX")
+              cleanup() {
+                if [ -f "$cidfile" ]; then
+                  ( podman rm "$(cat "$cidfile")" >/dev/null 2>&1; rm -f "$cidfile" ) &
+                  disown
+                fi
+              }
+              trap cleanup EXIT
+
               echo "botille: starting container" >&2
               # shellcheck disable=SC2086
-              podman --hooks-dir "${hooksDir}" run $tty_flag --rm \
+              podman --hooks-dir "${hooksDir}" run $tty_flag \
+                --cidfile "$cidfile" \
                 $lan_annotation \
                 --dns=1.1.1.1 --dns=1.0.0.1 \
                 --cap-add=SYS_ADMIN --cap-drop=NET_ADMIN,NET_RAW \
