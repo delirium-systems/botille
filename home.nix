@@ -17,8 +17,10 @@ _: {
       force = true;
       text = builtins.toJSON {
         model = "claude-opus-4-6";
-        reasoning_effort = "high";
         defaultMode = "bypassPermissions";
+        env = {
+          CLAUDE_CODE_EFFORT_LEVEL = "high";
+        };
         projects = {
           "/work" = {
             allowedTools = [];
@@ -49,12 +51,15 @@ _: {
           allow = [
             "Bash(*#*)"
             "Bash(*$(*)*)"
+            "Edit(/tmp/**)"
             "Edit(/work/**)"
             "Read(/home/user/**)"
             "Read(/nix/**)"
+            "Read(/tmp/**)"
             "Read(/work/**)"
             "WebFetch"
             "WebSearch"
+            "Write(/tmp/**)"
             "Write(/work/**)"
             "Bash(alejandra:*)"
             "Bash(awk:*)"
