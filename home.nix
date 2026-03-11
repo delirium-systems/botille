@@ -16,14 +16,12 @@ _: {
     configFile."claude/settings.json" = {
       force = true;
       text = builtins.toJSON {
+        "$schema" = "https://json.schemastore.org/claude-code-settings.json";
         model = "claude-opus-4-6";
-        defaultMode = "bypassPermissions";
-        env = {
-          CLAUDE_CODE_EFFORT_LEVEL = "high";
-        };
+        effortLevel = "high";
         projects = {
           "/work" = {
-            allowedTools = [];
+            allowedTools = [ ];
             hasTrustDialogAccepted = true;
             hasCompletedOnboarding = true;
             hasTrustDialogHooksAccepted = true;
