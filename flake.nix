@@ -343,14 +343,17 @@
 
               echo "botille: starting container" >&2
               # shellcheck disable=SC2086
-              podman --hooks-dir "${hooksDir}" run $tty_flag \
-                --cidfile "$cidfile" \
+              podman --hooks-dir "${hooksDir}" run \
+                $tty_flag \
                 $lan_annotation \
+                $term_env \
+                --detach-keys="" \
+                --cidfile "$cidfile" \
                 --dns=1.1.1.1 --dns=1.0.0.1 \
-                --cap-add=SYS_ADMIN --cap-drop=NET_ADMIN,NET_RAW \
+                --cap-add=SYS_ADMIN \
+                --cap-drop=NET_ADMIN,NET_RAW \
                 --security-opt=no-new-privileges \
                 --userns=keep-id \
-                $term_env \
                 -v "$PWD:/work" \
                 -v botille-home:${home} \
                 -v botille-nix:/var/nix-store \
