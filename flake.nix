@@ -88,7 +88,8 @@
             pkgs.jq
             pkgs.diffutils
             pkgs.delta
-            # Archives
+            # Archives & hex
+            pkgs.unixtools.xxd
             pkgs.unzip
             pkgs.gnutar
             # Git & GitHub
