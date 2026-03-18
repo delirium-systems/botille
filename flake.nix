@@ -268,6 +268,7 @@
           container = pkgs.dockerTools.buildLayeredImage {
             name = "botille";
             tag = "latest";
+            maxLayers = 2;
 
             contents = containerPackages ++ [
               pkgs.dockerTools.fakeNss
@@ -322,7 +323,10 @@
               marker_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/botille"
               marker_file="$marker_dir/loaded-image"
               nix_store_path="${container}"
-              if ! [ -f "$marker_file" ] || [ "$(<"$marker_file")" != "$nix_store_path" ] || ! podman image exists "$image"; then
+
+              # Only check podman when the marker file is missing or stale —
+              # avoids a ~1-2s podman image exists call on the hot path.
+              if ! [ -f "$marker_file" ] || [ "$(<"$marker_file")" != "$nix_store_path" ]; then
                 echo "botille: loading image from $nix_store_path" >&2
                 podman rmi "$image" 2>/dev/null || true
                 podman load < "$nix_store_path"
@@ -332,6 +336,7 @@
               else
                 echo "botille: image up to date" >&2
               fi
+
               tty_flag=""
               if [ -t 0 ]; then
                 tty_flag="-it"
@@ -373,6 +378,7 @@
               echo "botille: starting container" >&2
               # shellcheck disable=SC2086
               podman --hooks-dir "${hooksDir}" run \
+                --log-driver=none \
                 $tty_flag \
                 $lan_annotation \
                 $term_env \
