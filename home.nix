@@ -213,7 +213,12 @@ _: {
   };
 
   programs = {
-    bash.enable = true;
+    bash = {
+      enable = true;
+      shellAliases = {
+        claude-yolo = "claude --dangerously-skip-permissions";
+      };
+    };
 
     starship = {
       enable = true;

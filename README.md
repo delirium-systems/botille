@@ -43,6 +43,8 @@ alias botille="nix run 'github:delirium-systems/botille' --"
 
 Then: `botille`, `botille claude`, `botille --allow-lan`.
 
+Inside the container, `claude-yolo` is a shell alias for `claude --dangerously-skip-permissions` — it runs Claude Code with no permission prompts.
+
 ### API keys
 
 Authenticate interactively inside the container on first run — credentials persist in the `botille-home` volume. Alternatively, pass keys via environment variables by editing the launcher or using `podman run -e` directly.
