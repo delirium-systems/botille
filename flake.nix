@@ -52,6 +52,10 @@
           home = "/home/user";
 
           # Core tools available inside the container
+          claude-yolo = pkgs.writeShellScriptBin "claude-yolo" ''
+            exec claude --dangerously-skip-permissions "$@"
+          '';
+
           containerPackages = [
             pkgs.bash
             pkgs.coreutils
@@ -73,6 +77,7 @@
             pkgs.nix
             pkgs.cacert
             llm-agents.packages.${system}.claude-code
+            claude-yolo
             llm-agents.packages.${system}.gemini-cli
             llm-agents.packages.${system}.copilot-cli
             llm-agents.packages.${system}.opencode

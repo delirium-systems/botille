@@ -215,9 +215,6 @@ _: {
   programs = {
     bash = {
       enable = true;
-      shellAliases = {
-        claude-yolo = "claude --dangerously-skip-permissions";
-      };
     };
 
     starship = {
