@@ -39,11 +39,12 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi,
 - Built with `pkgs.dockerTools.buildLayeredImage`
 - Contains: Nix, Claude Code, Gemini CLI, Copilot CLI, OpenCode, Pi, OpenClaw, bash, git, coreutils, findutils, gnugrep, gnused, gawk, which, less, neovim, iproute2, curl, wget, direnv, nix-direnv, cachix, python3, ripgrep, fd, tree, file, jq, diffutils, unzip, gnutar, gh, openssh, nodejs, rsync, tmux, man
 - Agents sourced from [numtide/llm-agents.nix](https://github.com/numtide/llm-agents.nix) (auto-updated daily)
-- Reproducible — fully defined in `flake.nix`
+- Reproducible — fully defined in the Nix flake (`flake.nix` + `nix/` modules)
 
-### 3. Nix Store Persistence (Overlay)
-- A named Podman volume (`botille-nix-overlay`) provides upperdir/workdir for an overlay mount on `/nix`
-- The image's read-only `/nix` is the lower layer; user-installed packages go to the overlay upper layer
+### 3. Nix Store Persistence (Copy + Bind Mount)
+- A named Podman volume (`botille-nix`) is mounted at `/var/nix-store`
+- On first run, the entrypoint copies the image's `/nix` to the volume (`cp --reflink=auto` for instant clones on CoW filesystems), then bind-mounts the volume copy over `/nix`
+- On image update, new store paths are merged alongside existing ones (non-destructive); the Nix DB is reset and reloaded from the new image closure
 - Entrypoint runs `nix-store --load-db` to register all image store paths and pins a GC root so they survive garbage collection
 - Subsequent runs reuse the volume — `nix-env`, `nix shell`, etc. persist installed packages
 
@@ -105,18 +106,22 @@ nix run 'delirium-systems/botille' -- --allow-lan claude
 ## Nix Flake Structure
 
 ```
-flake.nix
-├── packages.container    → OCI image (dockerTools.buildLayeredImage)
-│   └── contents:
-│       ├── nix, cachix, direnv, nix-direnv
-│       ├── claude-code, gemini-cli, copilot-cli, opencode, pi, openclaw
-│       ├── bash, git, coreutils, findutils, gnugrep, gnused, gawk
-│       ├── which, less, neovim, python3, nodejs, ripgrep, fd, jq, …
-│       └── fakeNss, /etc/nix/nix.conf, /tmp, /usr/bin/env
-├── apps.default          → shell script: podman load + podman run
+flake.nix                 → thin orchestrator wiring modules together
+├── nix/
+│   ├── caches.nix        → binary cache URLs/keys (single source of truth)
+│   ├── packages.nix      → container package list
+│   ├── entrypoint.sh     → container entrypoint (standalone shell script)
+│   ├── entrypoint.nix    → builds entrypoint via replaceVarsWith
+│   ├── firewall.nix      → OCI hook: iptables LAN-blocking script
+│   ├── container.nix     → OCI image (dockerTools.buildLayeredImage)
+│   ├── launcher.nix      → launcher script (podman load + podman run)
+│   └── tests.nix         → NixOS VM tests for AI tool smoke checks
+├── home.nix              → home-manager configuration
+│
+├── packages.container    → OCI image
+├── apps.default          → launcher shell script
 ├── checks                → statix, deadnix, ai-tools (NixOS VM test)
-├── formatter             → nixfmt
-└── devShells.default     → dev environment (podman, nix)
+└── formatter             → nixfmt
 ```
 
 ## Execution Flow
@@ -127,7 +132,7 @@ flake.nix
 4. Script runs container with:
    - `$PWD` → `/work` bind mount
    - `botille-home` volume → `/home/user`
-   - `botille-nix-overlay` volume + overlay mount → `/nix`
+   - `botille-nix` volume → `/var/nix-store` (bind-mounted over `/nix` by entrypoint)
    - `--userns=keep-id` to map host UID into container
    - Interactive TTY attached (`-it`)
 5. OCI hook fires at `createContainer` stage, applying iptables LAN-blocking rules using host-side binaries
@@ -142,4 +147,4 @@ flake.nix
 |-------------------|---------------------------------|--------------------------------------|
 | `/work`           | bind: host `$PWD`              | Project files                        |
 | `/home/user`      | volume: `botille-home`         | Credentials, configs, XDG dirs       |
-| `/nix`            | overlay on `botille-nix-overlay` | Nix store (image lower + user upper) |
+| `/nix`            | bind mount from `botille-nix` volume | Nix store (copied from image, persists installs) |

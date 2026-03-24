@@ -3,7 +3,8 @@
 <!-- Keep this file lean. Only add things that are NOT inferrable from reading
      the source code: surprising gotchas, easy-to-make mistakes, external facts,
      local workstation details, and behavioral rules for Claude. Everything else
-     (host configs, services, modules, flake inputs, etc.) lives in the code. -->
+     (host configs, services, modules, flake inputs, etc.) lives in the code. 
+     Remember to always update this file when you learn new things! -->
 
 ## Gotchas
 
