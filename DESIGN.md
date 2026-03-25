@@ -58,7 +58,9 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi,
 
 ### 5. Network Isolation (OCI Hooks)
 - Rootless Podman uses `slirp4netns` or `pasta` for userspace networking
-- An OCI hook (`createContainer` stage) applies iptables rules **before** the container process starts, using host-side Nix store binaries
+- Two OCI hooks enforce the firewall in stages:
+  1. **`createContainer`** — REJECT rules block all private ranges **before** the container process starts, using host-side Nix store binaries
+  2. **`poststart`** — an ACCEPT rule is inserted for the container's own IP (e.g. `10.0.2.100`). Pasta forwards exposed ports by connecting to the container's IP from within the network namespace; without this exception those SYNs hit the REJECT rules. Self-addressed traffic never leaves the container (equivalent to localhost), so this has no security impact.
 - Blocked ranges:
   - `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` (RFC1918)
   - `169.254.0.0/16` (link-local)
@@ -66,10 +68,11 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi,
   - `fc00::/7`, `fe80::/10` (IPv6 ULA/link-local)
 - `CAP_NET_ADMIN` and `CAP_NET_RAW` are dropped — the container process cannot modify the rules
 - Public DNS forced (`--dns=1.1.1.1 --dns=1.0.0.1`) so DNS traffic bypasses private-range blocks regardless of Podman network backend (slirp4netns, pasta)
-- Hook is annotation-gated (`io.botille.block-lan=true`) so it only fires for botille containers
-- If the hook fails, container creation aborts (fail-safe)
+- Hooks are annotation-gated (`io.botille.block-lan=true`) so they only fire for botille containers
+- If the `createContainer` hook fails, container creation aborts (fail-safe)
 - Result: container can reach the public internet (Claude API) but not the LAN; rules are immutable from inside
-- Pass `--allow-lan` to the launcher to omit the annotation and skip the hook entirely, granting full LAN access for that run
+- Pass `--allow-lan` to the launcher to omit the annotation and skip both hooks entirely, granting full LAN access for that run
+- Pass `--port`/`-p` to expose container ports to the host (e.g. `--port 4096:4096` for web UIs)
 
 ### 6. Guardrails
 - Rootless Podman — no daemon, no root privileges, runs entirely as the calling user
@@ -89,6 +92,10 @@ nix run 'delirium-systems/botille' -- claude
 # Disable LAN restrictions for this run (--allow-lan is consumed by the launcher, not forwarded to the container)
 nix run 'delirium-systems/botille' -- --allow-lan
 nix run 'delirium-systems/botille' -- --allow-lan claude
+
+# Expose ports to the host (e.g. for web UIs)
+nix run 'delirium-systems/botille' -- --port 4096:4096 opencode web --hostname 0.0.0.0
+nix run 'delirium-systems/botille' -- -p 8080:3000 -p 9090:9090
 ```
 
 ### 7. Binary Caching (Cachix)
@@ -135,8 +142,9 @@ flake.nix                 → thin orchestrator wiring modules together
    - `botille-nix` volume → `/var/nix-store` (bind-mounted over `/nix` by entrypoint)
    - `--userns=keep-id` to map host UID into container
    - Interactive TTY attached (`-it`)
-5. OCI hook fires at `createContainer` stage, applying iptables LAN-blocking rules using host-side binaries
+5. OCI `createContainer` hook fires, applying iptables REJECT rules for all private ranges using host-side binaries
 6. Podman drops `CAP_NET_ADMIN`/`NET_RAW` and starts the container process
+6b. OCI `poststart` hook fires, inserting an ACCEPT rule for the container's own IP (enables pasta port forwarding)
 7. Entrypoint registers image store paths in the Nix DB and pins a GC root
 8. User lands in a shell with `claude`, `gemini`, `copilot`, `opencode`, `pi`, `openclaw`, `nix`, `git` on `$PATH`, working dir `/work`
 8. On exit, file changes persist in host `cwd`; home directory and nix store persist in volumes

@@ -40,15 +40,33 @@ pkgs.writeShellApplication {
       term_env="$term_env -e TERM_PROGRAM_VERSION=$TERM_PROGRAM_VERSION"
     fi
 
-    # Strip --allow-lan from args forwarded to the container
+    # Strip launcher flags from args forwarded to the container
     allow_lan=false
+    port_flags=()
     container_args=()
-    for arg in "$@"; do
-      if [ "$arg" = "--allow-lan" ]; then
-        allow_lan=true
-      else
-        container_args+=("$arg")
-      fi
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --allow-lan)
+          allow_lan=true
+          shift
+          ;;
+        -p|--port)
+          if [ $# -lt 2 ]; then
+            echo "botille: $1 requires an argument (e.g. --port 3000)" >&2
+            exit 1
+          fi
+          port_flags+=("-p" "$2")
+          shift 2
+          ;;
+        --port=*)
+          port_flags+=("-p" "''${1#--port=}")
+          shift
+          ;;
+        *)
+          container_args+=("$1")
+          shift
+          ;;
+      esac
     done
     lan_annotation="--annotation io.botille.block-lan=true"
     if [ "$allow_lan" = true ]; then
@@ -71,6 +89,7 @@ pkgs.writeShellApplication {
       $tty_flag \
       $lan_annotation \
       $term_env \
+      "''${port_flags[@]}" \
       --detach-keys="" \
       --cidfile "$cidfile" \
       --dns=1.1.1.1 --dns=1.0.0.1 \

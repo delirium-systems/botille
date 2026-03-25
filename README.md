@@ -29,6 +29,10 @@ nix run 'github:delirium-systems/botille' -- claude
 # Disable LAN restrictions (allow access to private/LAN IP ranges)
 nix run 'github:delirium-systems/botille' -- --allow-lan
 nix run 'github:delirium-systems/botille' -- --allow-lan claude
+
+# Expose ports to access web UIs from the host (e.g. opencode, openclaw)
+nix run 'github:delirium-systems/botille' -- --port 3000 opencode
+nix run 'github:delirium-systems/botille' -- -p 8080:3000 -p 9090:9090
 ```
 
 Your current directory is mounted at `/work` inside the container. File changes persist on the host; credentials and installed packages persist in Podman volumes.
@@ -41,7 +45,7 @@ Pre-built binaries are available from the `delirium-systems` cachix cache — th
 alias botille="nix run 'github:delirium-systems/botille' --"
 ```
 
-Then: `botille`, `botille claude`, `botille --allow-lan`.
+Then: `botille`, `botille claude`, `botille --allow-lan`, `botille --port 3000 opencode`.
 
 Inside the container, `claude-yolo` is a shell alias for `claude --dangerously-skip-permissions` — it runs Claude Code with no permission prompts.
 
@@ -82,7 +86,7 @@ Then `nix run .` to use your customised container. Modules are appended after th
 ## ⚙️ How it works
 
 1. **Launcher** checks if the current container image is already loaded in Podman; reloads only when the Nix store path changes
-2. **OCI hook** applies iptables rules blocking RFC1918, CGNAT, and link-local ranges before the container process starts; `CAP_NET_ADMIN`/`CAP_NET_RAW` are dropped so rules are immutable from inside
+2. **OCI hooks** apply iptables rules in two stages: REJECT rules blocking RFC1918, CGNAT, and link-local ranges at `createContainer` (before the process starts), then an ACCEPT rule for the container's own IP at `poststart` (so pasta can forward exposed ports). `CAP_NET_ADMIN`/`CAP_NET_RAW` are dropped so rules are immutable from inside
 3. **Entrypoint** copies the image's Nix store to a persistent volume (first run only), registers store paths in the Nix DB, pins a GC root, and runs home-manager activation
 4. **Container starts** with your `$PWD` at `/work`, tools on `$PATH`, DNS forced to 1.1.1.1/1.0.0.1
 
