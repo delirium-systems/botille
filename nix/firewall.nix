@@ -43,18 +43,22 @@ in
   hooksDir = pkgs.symlinkJoin {
     name = "botille-hooks";
     paths = [
-      (pkgs.writeTextDir "botille-block-lan.json" (builtins.toJSON {
-        version = "1.0.0";
-        hook.path = "${blockScript}";
-        when.annotations."^io\\.botille\\.block-lan$" = "true";
-        stages = [ "createContainer" ];
-      }))
-      (pkgs.writeTextDir "botille-allow-self.json" (builtins.toJSON {
-        version = "1.0.0";
-        hook.path = "${allowSelfScript}";
-        when.annotations."^io\\.botille\\.block-lan$" = "true";
-        stages = [ "poststart" ];
-      }))
+      (pkgs.writeTextDir "botille-block-lan.json" (
+        builtins.toJSON {
+          version = "1.0.0";
+          hook.path = "${blockScript}";
+          when.annotations."^io\\.botille\\.block-lan$" = "true";
+          stages = [ "createContainer" ];
+        }
+      ))
+      (pkgs.writeTextDir "botille-allow-self.json" (
+        builtins.toJSON {
+          version = "1.0.0";
+          hook.path = "${allowSelfScript}";
+          when.annotations."^io\\.botille\\.block-lan$" = "true";
+          stages = [ "poststart" ];
+        }
+      ))
     ];
   };
 }
