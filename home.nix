@@ -8,12 +8,21 @@
 }:
 let
   # Base Claude settings managed declaratively by Nix.
-  # MCP servers are intentionally omitted — they are preserved from the
-  # existing settings.json so that Claude Code can add them at runtime.
+  # Keys defined here take priority over runtime values (deep merge).
+  # Runtime-added keys (mcpServers, enabledPlugins, etc.) are preserved.
   claudeSettings = builtins.toJSON {
     "$schema" = "https://json.schemastore.org/claude-code-settings.json";
     model = "claude-opus-4-6";
     effortLevel = "high";
+    mcpServers = {
+      serena = {
+        command = "serena";
+        args = [ "start-mcp-server" "--project-from-cwd" ];
+      };
+    };
+    enabledPlugins = {
+      "hls@claude-hls" = true;
+    };
     projects = {
       "/work" = {
         allowedTools = [ ];
@@ -219,8 +228,8 @@ in
 
   # Claude settings are written as a regular file (not a symlink) so that
   # Claude Code can modify it at runtime (e.g. to add MCP servers).
-  # On home-manager activation the Nix-managed keys are updated in-place
-  # while preserving any runtime additions like mcpServers.
+  # On home-manager activation, the existing file is deep-merged with the
+  # Nix-managed base — Nix keys win, runtime-added keys are preserved.
   home.activation.claudeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     settings="$HOME/.config/claude/settings.json"
     base=${lib.escapeShellArg claudeSettings}
@@ -230,11 +239,8 @@ in
       rm "$settings"
       echo "$base" | ${pkgs.jq}/bin/jq . > "$settings"
     elif [ -f "$settings" ]; then
-      # Merge: Nix-managed keys win, but keep mcpServers from the existing file
-      ${pkgs.jq}/bin/jq -s '
-        (.[1] | {mcpServers} | with_entries(select(.value != null)))
-        * .[0]
-      ' <(echo "$base") "$settings" > "$settings.tmp"
+      # Merge: existing file is the base, Nix-managed keys win via deep merge
+      ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$settings" <(echo "$base") > "$settings.tmp"
       mv "$settings.tmp" "$settings"
     else
       echo "$base" | ${pkgs.jq}/bin/jq . > "$settings"

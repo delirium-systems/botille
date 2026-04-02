@@ -2,6 +2,7 @@
   pkgs,
   llmAgentsPkgs,
   homeManagerPkg,
+  serenaPkg,
 }:
 let
   claude-yolo = pkgs.writeShellScriptBin "claude-yolo" ''
@@ -37,6 +38,8 @@ in
   llmAgentsPkgs.pi
   llmAgentsPkgs.openclaw
   pkgs.python3
+  pkgs.uv
+  serenaPkg
   # Search & navigation
   pkgs.ripgrep
   pkgs.fd

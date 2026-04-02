@@ -12,6 +12,10 @@
       url = "github:numtide/llm-agents.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    serena = {
+      url = "github:oraios/serena";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {
@@ -34,6 +38,7 @@
       flake-utils,
       home-manager,
       llm-agents,
+      serena,
     }:
     let
       cacheData = import ./nix/caches.nix;
@@ -57,6 +62,7 @@
             inherit pkgs;
             llmAgentsPkgs = llm-agents.packages.${system};
             homeManagerPkg = home-manager.packages.${system}.home-manager;
+            serenaPkg = serena.packages.${system}.default;
           };
 
           # Home-manager activation package (built at Nix time, activated at container start).
