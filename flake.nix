@@ -98,10 +98,19 @@
             ];
           };
 
+          # closureInfo doesn't include itself in its own registration.
+          # Without this, the GC root (which points to imageClosureInfo)
+          # is dangling from Nix's perspective and nix store gc ignores it,
+          # collecting unreferenced leaf paths like nixConf and fakeNss.
+          closureInfoReg = pkgs.closureInfo {
+            rootPaths = [ imageClosureInfo ];
+          };
+
           entrypoint = import ./nix/entrypoint.nix {
             inherit
               pkgs
               imageClosureInfo
+              closureInfoReg
               home
               hmActivation
               ;

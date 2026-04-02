@@ -13,7 +13,16 @@ set -euo pipefail
 nix_vol="/var/nix-store"
 nix_data="$nix_vol/nix"
 nix_marker="$nix_vol/.botille-image"
+needs_init=false
 if ! [ -f "$nix_marker" ] || [ "$(<"$nix_marker")" != "@imageClosureInfo@" ]; then
+  needs_init=true
+elif ! [ -d "$nix_data/store/$(basename @imageClosureInfo@)" ]; then
+  # Marker matches but gc has removed image paths — repair.
+  echo "Repairing Nix store (gc damage detected)…" >&2
+  needs_init=true
+fi
+
+if [ "$needs_init" = true ]; then
   if [ -d "$nix_data/store" ]; then
     echo "Updating Nix store (preserving existing paths)…" >&2
     # Non-destructive merge: copy new image paths alongside old
@@ -41,6 +50,10 @@ if ! [ -f "$nix_marker" ] || [ "$(<"$nix_marker")" != "@imageClosureInfo@" ]; th
   # The marker is written only after --load-db succeeds, so a
   # crash here causes a clean re-init on next run.
   nix-store --load-db < @imageClosureInfo@/registration
+  # closureInfo doesn't list itself in its own registration, so the
+  # GC root pointing to it would be dangling.  Load a second
+  # registration that covers imageClosureInfo so gc honours the root.
+  nix-store --load-db < @closureInfoReg@/registration
   printf '%s' "@imageClosureInfo@" > "$nix_marker"
 else
   mount --bind "$nix_data" /nix
