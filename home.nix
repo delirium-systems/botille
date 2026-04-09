@@ -17,7 +17,10 @@ let
     mcpServers = {
       serena = {
         command = "serena";
-        args = [ "start-mcp-server" "--project-from-cwd" ];
+        args = [
+          "start-mcp-server"
+          "--project-from-cwd"
+        ];
       };
     };
     enabledPlugins = {
@@ -225,6 +228,42 @@ in
   systemd.user.startServices = false;
 
   xdg.enable = true;
+
+  # Serena config — written as a regular file (not a symlink) because serena
+  # may need to write to it at runtime (e.g. adding project entries).
+  home.activation.serenaConfig = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    cfg="$SERENA_HOME/serena_config.yml"
+    mkdir -p "$(dirname "$cfg")"
+    cat > "$cfg" << 'YAML'
+    # Serena global config: disable tools that duplicate the host editor's
+    # built-in capabilities.
+    gui_log_window: false
+    web_dashboard: false
+    web_dashboard_open_on_launch: false
+    projects: []
+    excluded_tools:
+      # Redundant with the host editor's built-in tools
+      - read_file
+      - create_text_file
+      - list_dir
+      - find_file
+      - search_for_pattern
+      - replace_content
+      - execute_shell_command
+      # Memory (no sandbox persistence for global memories)
+      - write_memory
+      - read_memory
+      - list_memories
+      - edit_memory
+      - rename_memory
+      - delete_memory
+      # Management (not needed in sandbox)
+      - initial_instructions
+      - prepare_for_new_conversation
+      - switch_modes
+      - get_current_config
+    YAML
+  '';
 
   # Claude settings are written as a regular file (not a symlink) so that
   # Claude Code can modify it at runtime (e.g. to add MCP servers).

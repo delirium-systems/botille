@@ -9,6 +9,11 @@ pkgs.replaceVarsWith {
   src = ./entrypoint.sh;
   isExecutable = true;
   replacements = {
-    inherit imageClosureInfo closureInfoReg home hmActivation;
+    inherit
+      imageClosureInfo
+      closureInfoReg
+      home
+      hmActivation
+      ;
   };
 }
