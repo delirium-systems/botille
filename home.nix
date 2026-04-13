@@ -14,6 +14,11 @@ let
     "$schema" = "https://json.schemastore.org/claude-code-settings.json";
     model = "claude-opus-4-6";
     effortLevel = "high";
+    teammateMode = "auto";
+    env = {
+      CLAUDE_CODE_EFFORT_LEVEL = "max";
+      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "true";
+    };
     mcpServers = {
       serena = {
         command = "serena";
