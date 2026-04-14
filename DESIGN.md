@@ -37,7 +37,7 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi,
 
 ### 2. Container Image (Nix-built)
 - Built with `pkgs.dockerTools.buildLayeredImage`
-- Contains: Nix, Claude Code, Gemini CLI, Copilot CLI, OpenCode, Pi, OpenClaw, bash, git, coreutils, findutils, gnugrep, gnused, gawk, which, less, neovim, iproute2, curl, wget, direnv, nix-direnv, cachix, python3, ripgrep, fd, tree, file, jq, diffutils, unzip, gnutar, gh, openssh, nodejs, rsync, tmux, man
+- Contains: Nix, Claude Code, Gemini CLI, Copilot CLI, OpenCode, Pi, OpenClaw, bash, git, coreutils, findutils, gnugrep, gnused, gawk, which, less, neovim, iproute2, curl, wget, direnv, nix-direnv, cachix, python3, ripgrep, fd, tree, file, jq, diffutils, unzip, gnutar, gh, openssh, gnupg, nodejs, rsync, tmux, man
 - Agents sourced from [numtide/llm-agents.nix](https://github.com/numtide/llm-agents.nix) (auto-updated daily)
 - Reproducible — fully defined in the Nix flake (`flake.nix` + `nix/` modules)
 
@@ -72,6 +72,7 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi,
 - If the `createContainer` hook fails, container creation aborts (fail-safe)
 - Result: container can reach the public internet (Claude API) but not the LAN; rules are immutable from inside
 - Pass `--allow-lan` to the launcher to omit the annotation and skip both hooks entirely, granting full LAN access for that run
+- Pass `--devshell` to evaluate the project's `.envrc` (via `direnv exec`) before running the command — the agent/shell inherits the dev shell environment (e.g. `use flake` outputs)
 - Pass `--port`/`-p` to expose container ports to the host (e.g. `--port 4096:4096` for web UIs)
 
 ### 6. Guardrails
@@ -92,6 +93,10 @@ nix run 'delirium-systems/botille' -- claude
 # Disable LAN restrictions for this run (--allow-lan is consumed by the launcher, not forwarded to the container)
 nix run 'delirium-systems/botille' -- --allow-lan
 nix run 'delirium-systems/botille' -- --allow-lan claude
+
+# Enter the project's direnv dev shell before running the command
+nix run 'delirium-systems/botille' -- --devshell claude
+nix run 'delirium-systems/botille' -- --devshell
 
 # Expose ports to the host (e.g. for web UIs)
 nix run 'delirium-systems/botille' -- --port 4096:4096 opencode web --hostname 0.0.0.0

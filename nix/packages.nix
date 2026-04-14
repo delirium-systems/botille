@@ -56,6 +56,7 @@ in
   # Git & GitHub
   pkgs.gh
   pkgs.openssh
+  pkgs.gnupg
   # General
   pkgs.nodejs
   pkgs.rsync

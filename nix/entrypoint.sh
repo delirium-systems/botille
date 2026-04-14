@@ -98,4 +98,10 @@ mkdir -p /work \
   "@home@/.local/state/gemini" \
   "@home@/.local/state/botille"
 
+# --- Opt-in: enter direnv dev shell before running the command ---
+if [ "${BOTILLE_DEVSHELL:-}" = "1" ] && [ -f /work/.envrc ]; then
+  direnv allow /work
+  exec direnv exec /work "$@"
+fi
+
 exec "$@"

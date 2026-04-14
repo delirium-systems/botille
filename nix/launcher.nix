@@ -42,12 +42,17 @@ pkgs.writeShellApplication {
 
     # Strip launcher flags from args forwarded to the container
     allow_lan=false
+    devshell=false
     port_flags=()
     container_args=()
     while [ $# -gt 0 ]; do
       case "$1" in
         --allow-lan)
           allow_lan=true
+          shift
+          ;;
+        --devshell)
+          devshell=true
           shift
           ;;
         -p|--port)
@@ -72,6 +77,10 @@ pkgs.writeShellApplication {
     if [ "$allow_lan" = true ]; then
       lan_annotation=""
     fi
+    devshell_env=""
+    if [ "$devshell" = true ]; then
+      devshell_env="-e BOTILLE_DEVSHELL=1"
+    fi
 
     cidfile=$(mktemp -u "/tmp/botille-cid.XXXXXX")
     cleanup() {
@@ -89,6 +98,7 @@ pkgs.writeShellApplication {
       $tty_flag \
       $lan_annotation \
       $term_env \
+      $devshell_env \
       "''${port_flags[@]}" \
       --detach-keys="" \
       --cidfile "$cidfile" \

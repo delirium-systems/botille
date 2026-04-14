@@ -30,6 +30,10 @@ nix run 'github:delirium-systems/botille' -- claude
 nix run 'github:delirium-systems/botille' -- --allow-lan
 nix run 'github:delirium-systems/botille' -- --allow-lan claude
 
+# Enter the project's direnv dev shell before running the command
+nix run 'github:delirium-systems/botille' -- --devshell claude
+nix run 'github:delirium-systems/botille' -- --devshell
+
 # Expose ports to access web UIs from the host (e.g. opencode, openclaw)
 nix run 'github:delirium-systems/botille' -- --port 3000 opencode
 nix run 'github:delirium-systems/botille' -- -p 8080:3000 -p 9090:9090
@@ -45,7 +49,7 @@ Pre-built binaries are available from the `delirium-systems` cachix cache — th
 alias botille="nix run 'github:delirium-systems/botille' --"
 ```
 
-Then: `botille`, `botille claude`, `botille --allow-lan`, `botille --port 3000 opencode`.
+Then: `botille`, `botille claude`, `botille --allow-lan`, `botille --devshell claude`, `botille --port 3000 opencode`.
 
 Inside the container, `claude-yolo` is a shell alias for `claude --dangerously-skip-permissions` — it runs Claude Code with no permission prompts.
 
