@@ -12,11 +12,11 @@ let
   # Runtime-added keys (mcpServers, enabledPlugins, etc.) are preserved.
   claudeSettings = builtins.toJSON {
     "$schema" = "https://json.schemastore.org/claude-code-settings.json";
-    model = "claude-opus-4-7";
-    effortLevel = "high";
+    # model = "claude-opus-4-7";
+    # effortLevel = "high";
     teammateMode = "auto";
     env = {
-      CLAUDE_CODE_EFFORT_LEVEL = "max";
+      # CLAUDE_CODE_EFFORT_LEVEL = "max";
       CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "true";
     };
     mcpServers = {
