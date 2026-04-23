@@ -49,7 +49,6 @@ pkgs.dockerTools.buildLayeredImage {
       "WGETRC=${home}/.config/wget/wgetrc"
       "GEMINI_CLI_HOME=${home}/.local/state/gemini"
       "SERENA_HOME=${home}/.config/serena"
-      "TERM=xterm-256color"
       "COLORTERM=truecolor"
     ];
   };

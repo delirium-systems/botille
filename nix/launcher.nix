@@ -33,12 +33,23 @@ pkgs.writeShellApplication {
     # Forward host terminal identity so CLI tools (claude, delta, etc.)
     # can detect the real emulator and enable full colour/highlighting.
     term_env=""
-    if [ -n "''${TERM_PROGRAM:-}" ]; then
-      term_env="$term_env -e TERM_PROGRAM=$TERM_PROGRAM"
-    fi
-    if [ -n "''${TERM_PROGRAM_VERSION:-}" ]; then
-      term_env="$term_env -e TERM_PROGRAM_VERSION=$TERM_PROGRAM_VERSION"
-    fi
+    for _var in \
+      TERM_PROGRAM TERM_PROGRAM_VERSION \
+      KITTY_WINDOW_ID KITTY_PID \
+      ALACRITTY_LOG ALACRITTY_SOCKET \
+      WT_SESSION \
+      KONSOLE_VERSION \
+      GNOME_TERMINAL_SERVICE \
+      VTE_VERSION \
+      XTERM_VERSION \
+      TERMINATOR_UUID \
+      TILIX_ID \
+    ; do
+      eval "_val=\''${!_var:-}"
+      if [ -n "$_val" ]; then
+        term_env="$term_env -e $_var=$_val"
+      fi
+    done
 
     # Strip launcher flags from args forwarded to the container
     allow_lan=false
