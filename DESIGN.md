@@ -57,21 +57,30 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi,
 - Volume lives in user's rootless Podman storage (`~/.local/share/containers/`)
 
 ### 5. Network Isolation (OCI Hooks)
-- Rootless Podman uses `slirp4netns` or `pasta` for userspace networking
-- Two OCI hooks enforce the firewall in stages:
+- Rootless Podman with pasta networking on a custom subnet (10.171.0.0/24) to avoid collisions with common LAN ranges
+- Container IP: 10.171.0.100, gateway: 10.171.0.1
+- Pasta's `--map-gw` maps the gateway address to the host's loopback — services bound to `127.0.0.1` on the host are reachable via the gateway IP from inside the container
+- Three OCI hooks enforce the firewall in stages:
   1. **`createContainer`** — REJECT rules block all private ranges **before** the container process starts, using host-side Nix store binaries
-  2. **`poststart`** — an ACCEPT rule is inserted for the container's own IP (e.g. `10.0.2.100`). Pasta forwards exposed ports by connecting to the container's IP from within the network namespace; without this exception those SYNs hit the REJECT rules. Self-addressed traffic never leaves the container (equivalent to localhost), so this has no security impact.
+  2. **`poststart` (allow-self)** — an ACCEPT rule is inserted for the container's own IP (e.g. `10.171.0.100`).
+Pasta forwards exposed ports by connecting to the container's IP from within the network namespace; without this exception those SYNs hit the REJECT rules.
+Self-addressed traffic never leaves the container (equivalent to localhost), so this has no security impact.
+  3. **`poststart` (allow-host-ports)** — when `--host-port` is used, ACCEPT rules are inserted for the gateway IP on the specified TCP ports.
+The gateway is detected dynamically via `ip route show default`.
+This allows the container to reach host services without opening the LAN.
 - Blocked ranges:
   - `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` (RFC1918)
   - `169.254.0.0/16` (link-local)
   - `100.64.0.0/10` (CGNAT)
   - `fc00::/7`, `fe80::/10` (IPv6 ULA/link-local)
 - `CAP_NET_ADMIN` and `CAP_NET_RAW` are dropped — the container process cannot modify the rules
-- Public DNS forced (`--dns=1.1.1.1 --dns=1.0.0.1`) so DNS traffic bypasses private-range blocks regardless of Podman network backend (slirp4netns, pasta)
-- Hooks are annotation-gated (`io.botille.block-lan=true`) so they only fire for botille containers
+- Public DNS forced (`--dns=1.1.1.1 --dns=1.0.0.1`) so DNS traffic bypasses private-range blocks regardless of Podman network backend
+- Hooks are annotation-gated so they only fire for botille containers
 - If the `createContainer` hook fails, container creation aborts (fail-safe)
 - Result: container can reach the public internet (Claude API) but not the LAN; rules are immutable from inside
 - Pass `--allow-lan` to the launcher to omit the annotation and skip both hooks entirely, granting full LAN access for that run
+- Pass `--host-port PORT` to allow TCP to a specific port on the host (repeatable, e.g. `--host-port 8080 --host-port 11434`).
+The host service **must** bind to `127.0.0.1`, not `0.0.0.0` — the container firewall only controls outbound traffic from the container; binding `0.0.0.0` exposes the service to the entire LAN regardless.
 - Pass `--devshell` to evaluate the project's `.envrc` (via `direnv exec`) before running the command — the agent/shell inherits the dev shell environment (e.g. `use flake` outputs)
 - Pass `--port`/`-p` to expose container ports to the host (e.g. `--port 4096:4096` for web UIs)
 
@@ -89,6 +98,11 @@ nix run 'delirium-systems/botille'
 
 # All args after -- are passed as the container command (replacing default /bin/bash)
 nix run 'delirium-systems/botille' -- claude
+
+# Allow TCP to specific ports on the host (e.g. llama.cpp, ollama)
+# Host service must bind 127.0.0.1 — binding 0.0.0.0 exposes it to the LAN
+nix run 'delirium-systems/botille' -- --host-port 8080
+nix run 'delirium-systems/botille' -- --host-port 8080 --host-port 11434 claude
 
 # Disable LAN restrictions for this run (--allow-lan is consumed by the launcher, not forwarded to the container)
 nix run 'delirium-systems/botille' -- --allow-lan
@@ -146,10 +160,11 @@ flake.nix                 → thin orchestrator wiring modules together
    - `botille-home` volume → `/home/user`
    - `botille-nix` volume → `/var/nix-store` (bind-mounted over `/nix` by entrypoint)
    - `--userns=keep-id` to map host UID into container
+   - `--network pasta:--map-gw,...` with custom subnet (10.171.0.0/24)
    - Interactive TTY attached (`-it`)
 5. OCI `createContainer` hook fires, applying iptables REJECT rules for all private ranges using host-side binaries
 6. Podman drops `CAP_NET_ADMIN`/`NET_RAW` and starts the container process
-6b. OCI `poststart` hook fires, inserting an ACCEPT rule for the container's own IP (enables pasta port forwarding)
+6b. OCI `poststart` hooks fire: ACCEPT rule for the container's own IP (enables pasta port forwarding), and if `--host-port` was used, ACCEPT rules for the gateway on those TCP ports
 7. Entrypoint registers image store paths in the Nix DB and pins a GC root
 8. User lands in a shell with `claude`, `gemini`, `copilot`, `opencode`, `pi`, `openclaw`, `nix`, `git` on `$PATH`, working dir `/work`
 8. On exit, file changes persist in host `cwd`; home directory and nix store persist in volumes

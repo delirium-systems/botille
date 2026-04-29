@@ -26,6 +26,12 @@ nix run 'github:delirium-systems/botille'
 # Pass a command to run inside the container (replaces default /bin/bash)
 nix run 'github:delirium-systems/botille' -- claude
 
+# Allow access to a service on the host (e.g. llama.cpp, ollama)
+# The host service must bind to 127.0.0.1, not 0.0.0.0
+# Inside the container, find the host IP with: ip route show default | awk '{print $3}'
+nix run 'github:delirium-systems/botille' -- --host-port 8080
+nix run 'github:delirium-systems/botille' -- --host-port 8080 --host-port 11434 claude
+
 # Disable LAN restrictions (allow access to private/LAN IP ranges)
 nix run 'github:delirium-systems/botille' -- --allow-lan
 nix run 'github:delirium-systems/botille' -- --allow-lan claude
@@ -49,7 +55,7 @@ Pre-built binaries are available from the `delirium-systems` cachix cache — th
 alias botille="nix run 'github:delirium-systems/botille' --"
 ```
 
-Then: `botille`, `botille claude`, `botille --allow-lan`, `botille --devshell claude`, `botille --port 3000 opencode`.
+Then: `botille`, `botille claude`, `botille --host-port 8080`, `botille --allow-lan`, `botille --devshell claude`, `botille --port 3000 opencode`.
 
 Inside the container, `claude-yolo` is a shell alias for `claude --dangerously-skip-permissions` — it runs Claude Code with no permission prompts.
 
@@ -106,7 +112,9 @@ Reset all state: `podman volume rm botille-home botille-nix`
 
 ## 🛡️ Security
 
-The primary security boundary is the **rootless Podman container**: the agent runs as an unprivileged user with no host network access to LAN/private ranges, and only the working directory is bind-mounted. `--allow-lan` disables the network firewall for that run — use only when needed (e.g. accessing local APIs).
+The primary security boundary is the **rootless Podman container**: the agent runs as an unprivileged user with no host network access to LAN/private ranges, and only the working directory is bind-mounted.
+`--host-port PORT` opens a surgical exception for a single TCP port on the host — the host service **must** bind to `127.0.0.1` to prevent LAN exposure.
+`--allow-lan` disables the network firewall entirely for that run — use only when needed.
 
 Claude Code's permission rules (`~/.config/claude/settings.json`) provide a secondary, **advisory** layer. `Read` denies for credential paths (`.ssh`, `.aws`, `.gnupg`, etc.) are enforced by the Read tool. `Bash` deny rules match on literal argument strings only — they do not survive shell expansion or variable indirection, so they prevent accidental access but are not a hard boundary.
 

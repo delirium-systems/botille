@@ -55,6 +55,7 @@ pkgs.writeShellApplication {
     allow_lan=false
     devshell=false
     port_flags=()
+    host_ports=()
     container_args=()
     while [ $# -gt 0 ]; do
       case "$1" in
@@ -78,6 +79,27 @@ pkgs.writeShellApplication {
           port_flags+=("-p" "''${1#--port=}")
           shift
           ;;
+        --host-port)
+          if [ $# -lt 2 ]; then
+            echo "botille: $1 requires a port number (e.g. --host-port 8080)" >&2
+            exit 1
+          fi
+          if ! [[ "$2" =~ ^[0-9]+$ ]] || [ "$2" -lt 1 ] || [ "$2" -gt 65535 ]; then
+            echo "botille: invalid port: $2 (must be 1-65535)" >&2
+            exit 1
+          fi
+          host_ports+=("$2")
+          shift 2
+          ;;
+        --host-port=*)
+          _hp="''${1#--host-port=}"
+          if ! [[ "$_hp" =~ ^[0-9]+$ ]] || [ "$_hp" -lt 1 ] || [ "$_hp" -gt 65535 ]; then
+            echo "botille: invalid port: $_hp (must be 1-65535)" >&2
+            exit 1
+          fi
+          host_ports+=("$_hp")
+          shift
+          ;;
         *)
           container_args+=("$1")
           shift
@@ -87,6 +109,11 @@ pkgs.writeShellApplication {
     lan_annotation="--annotation io.botille.block-lan=true"
     if [ "$allow_lan" = true ]; then
       lan_annotation=""
+    fi
+    host_port_annotation=""
+    if [ ''${#host_ports[@]} -gt 0 ]; then
+      host_port_list=$(IFS=,; echo "''${host_ports[*]}")
+      host_port_annotation="--annotation io.botille.allow-host-tcp=$host_port_list"
     fi
     devshell_env=""
     if [ "$devshell" = true ]; then
@@ -106,8 +133,10 @@ pkgs.writeShellApplication {
     # shellcheck disable=SC2086
     podman --hooks-dir "${hooksDir}" run \
       --log-driver=none \
+      --network 'pasta:--map-gw,-a,10.171.0.100,-n,24,-g,10.171.0.1' \
       $tty_flag \
       $lan_annotation \
+      $host_port_annotation \
       $term_env \
       $devshell_env \
       "''${port_flags[@]}" \

@@ -37,9 +37,33 @@ let
       "$nsenter" -t "$pid" -n -- "$ip6tables" -I OUTPUT 1 -d "$addr" -j ACCEPT
     done
   '';
+  # Stage 3 (poststart): allow TCP to specific ports on the host.
+  # The gateway IP (detected dynamically) maps to the host's loopback
+  # via pasta --map-gw, so the host service only needs to bind
+  # 127.0.0.1 — no LAN exposure.
+  allowHostPortsScript = pkgs.writeShellScript "botille-allow-host-ports.sh" ''
+    set -euo pipefail
+    nsenter="${pkgs.util-linux}/bin/nsenter"
+    ip="${pkgs.iproute2}/bin/ip"
+    iptables="${pkgs.iptables}/sbin/iptables"
+    awk="${pkgs.gawk}/bin/awk"
+    jq="${pkgs.jq}/bin/jq"
+
+    state=$(cat)
+    pid=$(echo "$state" | "$jq" -r '.pid')
+    ports=$(echo "$state" | "$jq" -r '.annotations["io.botille.allow-host-tcp"] // empty')
+    [ -z "$ports" ] && exit 0
+
+    gw=$("$nsenter" -t "$pid" -n -- "$ip" route show default | "$awk" '/^default/ {print $3; exit}')
+    [ -z "$gw" ] && exit 0
+
+    IFS=, read -ra port_list <<< "$ports"
+    for port in "''${port_list[@]}"; do
+      "$nsenter" -t "$pid" -n -- "$iptables" -I OUTPUT 1 -d "$gw" -p tcp --dport "$port" -j ACCEPT
+    done
+  '';
 in
 {
-  # OCI hooks directory — two hooks, two stages
   hooksDir = pkgs.symlinkJoin {
     name = "botille-hooks";
     paths = [
@@ -56,6 +80,14 @@ in
           version = "1.0.0";
           hook.path = "${allowSelfScript}";
           when.annotations."^io\\.botille\\.block-lan$" = "true";
+          stages = [ "poststart" ];
+        }
+      ))
+      (pkgs.writeTextDir "botille-allow-host-ports.json" (
+        builtins.toJSON {
+          version = "1.0.0";
+          hook.path = "${allowHostPortsScript}";
+          when.annotations."^io\\.botille\\.allow-host-tcp$" = ".+";
           stages = [ "poststart" ];
         }
       ))
