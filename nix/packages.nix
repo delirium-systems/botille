@@ -66,7 +66,7 @@ in
   # Network analysis
   pkgs.nmap
   pkgs.tcpdump
-  pkgs.wireshark-cli
+  # pkgs.wireshark-cli # broken: upstream source hash mismatch in nixpkgs
   pkgs.netcat-gnu
   pkgs.traceroute
   pkgs.dnsutils
