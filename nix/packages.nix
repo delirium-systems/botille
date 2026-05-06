@@ -36,7 +36,7 @@ in
   llmAgentsPkgs.copilot-cli
   llmAgentsPkgs.opencode
   llmAgentsPkgs.pi
-  llmAgentsPkgs.openclaw
+
   pkgs.python3
   pkgs.uv
   serenaPkg

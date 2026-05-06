@@ -21,10 +21,6 @@ let
       name = "pi-coding-agent";
       bin = "pi";
     }
-    {
-      name = "openclaw";
-      bin = "openclaw";
-    }
   ];
 
   subtestScript = builtins.concatStringsSep "\n" (
