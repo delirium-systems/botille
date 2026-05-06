@@ -63,9 +63,12 @@ Inside the container, `claude-yolo` is a shell alias for `claude --dangerously-s
 
 Authenticate interactively inside the container on first run — credentials persist in the `botille-home` volume. Alternatively, pass keys via environment variables by editing the launcher or using `podman run -e` directly.
 
-### Customising home-manager
+### Customisation
 
-Create a wrapper `flake.nix` to add your own home-manager configuration (git identity, extra packages, shell aliases, etc.) without forking:
+Create a wrapper `flake.nix` to customise the container without forking. `lib.mkApp` accepts two module lists:
+
+- **`extraHomeManagerModules`** — home-manager config (git identity, extra packages, shell aliases, etc.)
+- **`extraContainerModules`** — podman run flags (volumes, ports, environment, DNS, capabilities, etc.; see `nix/container-options.nix` for all options)
 
 ```nix
 {
@@ -81,15 +84,20 @@ Create a wrapper `flake.nix` to add your own home-manager configuration (git ide
             userName  = "Your Name";
           };
         }
-        # or point to a separate file:
-        # ./extra-hm.nix
+      ];
+      extraContainerModules = [
+        {
+          volumes = [ "/tmp/claude-dir:/home/user/.config/claude/:Z" ];
+          environment.MY_VAR = "hello";
+          dns = lib.mkForce [ "8.8.8.8" ];
+        }
       ];
     };
   };
 }
 ```
 
-Then `nix run .` to use your customised container. Modules are appended after the base config and can override any setting via `lib.mkForce`.
+Then `nix run .` to use your customised container. Modules merge with standard NixOS semantics (lists concatenate, attrsets merge by key). Use `lib.mkForce` to replace defaults instead of merging. Runtime CLI flags (`-v`, `-p`) still work and append after declarative ones.
 
 > **Note:** customised images are not in the cachix cache and will be built locally on first use.
 

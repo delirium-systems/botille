@@ -2,8 +2,11 @@
   pkgs,
   container,
   hooksDir,
-  home,
+  podmanFlags,
 }:
+let
+  staticFlags = builtins.concatStringsSep " \\\n      " podmanFlags;
+in
 pkgs.writeShellApplication {
   name = "botille-run";
   runtimeInputs = [ pkgs.podman ];
@@ -51,11 +54,12 @@ pkgs.writeShellApplication {
       fi
     done
 
-    # Strip launcher flags from args forwarded to the container
+    # Runtime flags — these layer on top of the declarative config
     allow_lan=false
     devshell=false
     port_flags=()
     host_ports=()
+    volume_flags=()
     container_args=()
     while [ $# -gt 0 ]; do
       case "$1" in
@@ -77,6 +81,18 @@ pkgs.writeShellApplication {
           ;;
         --port=*)
           port_flags+=("-p" "''${1#--port=}")
+          shift
+          ;;
+        -v|--volume)
+          if [ $# -lt 2 ]; then
+            echo "botille: $1 requires an argument (e.g. -v /host/path:/container/path)" >&2
+            exit 1
+          fi
+          volume_flags+=("-v" "$2")
+          shift 2
+          ;;
+        --volume=*)
+          volume_flags+=("-v" "''${1#--volume=}")
           shift
           ;;
         --host-port)
@@ -132,24 +148,17 @@ pkgs.writeShellApplication {
     echo "botille: starting container" >&2
     # shellcheck disable=SC2086
     podman --hooks-dir "${hooksDir}" run \
-      --log-driver=none \
-      --network 'pasta:--map-gw,-a,10.171.0.100,-n,24,-g,10.171.0.1' \
+      ${staticFlags} \
       $tty_flag \
       $lan_annotation \
       $host_port_annotation \
       $term_env \
       $devshell_env \
       "''${port_flags[@]}" \
+      "''${volume_flags[@]}" \
       --detach-keys="" \
       --cidfile "$cidfile" \
-      --dns=1.1.1.1 --dns=1.0.0.1 \
-      --cap-add=SYS_ADMIN \
-      --cap-drop=NET_ADMIN,NET_RAW \
-      --security-opt=no-new-privileges \
-      --userns=keep-id \
       -v "$PWD:/work" \
-      -v botille-home:${home} \
-      -v botille-nix:/var/nix-store \
       "$image" "''${container_args[@]}"
   '';
 }

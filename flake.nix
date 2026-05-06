@@ -49,6 +49,7 @@
         {
           system,
           extraHomeManagerModules ? [ ],
+          extraContainerModules ? [ ],
         }:
         let
           pkgs = import nixpkgs {
@@ -57,6 +58,17 @@
           };
 
           home = "/home/user";
+
+          containerConfig =
+            (pkgs.lib.evalModules {
+              modules = [
+                (import ./nix/container-options.nix { inherit home; })
+              ]
+              ++ extraContainerModules;
+            }).config;
+
+          renderPodmanFlags = import ./nix/render-podman-flags.nix { inherit (pkgs) lib; };
+          podmanFlags = renderPodmanFlags containerConfig;
 
           containerPackages = import ./nix/packages.nix {
             inherit pkgs;
@@ -129,7 +141,7 @@
           };
 
           launcher = import ./nix/launcher.nix {
-            inherit pkgs container home;
+            inherit pkgs container podmanFlags;
             inherit (firewall) hooksDir;
           };
 
@@ -189,6 +201,9 @@
       #           { programs.git.userEmail = "you@example.com"; }
       #           ./extra-hm.nix
       #         ];
+      #         extraContainerModules = [
+      #           { volumes = [ "/tmp/claude-dir:/home/user/.config/claude/:Z" ]; }
+      #         ];
       #       };
       #     };
       #   }
@@ -200,8 +215,9 @@
           {
             system,
             extraHomeManagerModules ? [ ],
+            extraContainerModules ? [ ],
           }:
-          (mkBotille { inherit system extraHomeManagerModules; }).app;
+          (mkBotille { inherit system extraHomeManagerModules extraContainerModules; }).app;
       };
     };
 }
