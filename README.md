@@ -12,7 +12,7 @@ Run coding agents inside a sandboxed, LAN-isolated rootless Podman container. Ev
 
 ## 🔒 What it does
 
-- 📦 Builds a reproducible OCI container image with Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi, OpenClaw, Nix, git, and common dev tools
+- 📦 Builds a reproducible OCI container image with Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi, Nix, git, and common dev tools
 - 🌐 Blocks all LAN/private network access via iptables OCI hooks — only public internet allowed
 - 🔑 Persists credentials and Nix store across runs via named Podman volumes
 - 🧑 Runs rootless — no daemon, no root, your UID mapped into the container
@@ -40,7 +40,7 @@ nix run 'github:delirium-systems/botille' -- --allow-lan claude
 nix run 'github:delirium-systems/botille' -- --devshell claude
 nix run 'github:delirium-systems/botille' -- --devshell
 
-# Expose ports to access web UIs from the host (e.g. opencode, openclaw)
+# Expose ports to access web UIs from the host (e.g. opencode)
 nix run 'github:delirium-systems/botille' -- --port 3000 opencode
 nix run 'github:delirium-systems/botille' -- -p 8080:3000 -p 9090:9090
 ```

@@ -1,5 +1,7 @@
 { pkgs, launcher }:
 let
+  testUser = "tester";
+
   tools = [
     {
       name = "claude-code";
@@ -23,10 +25,12 @@ let
     }
   ];
 
+  runAs = cmd: "su -l ${testUser} -c ${pkgs.lib.escapeShellArg cmd}";
+
   subtestScript = builtins.concatStringsSep "\n" (
     map (t: ''
       with subtest("${t.name}"):
-          output = machine.succeed("${pkgs.lib.getExe launcher} ${t.bin} --version")
+          output = machine.succeed("${runAs "${pkgs.lib.getExe launcher} ${t.bin} --version"}")
           print(f"${t.name}: {output.strip()}")
     '') tools
   );
@@ -39,6 +43,22 @@ in
         podman.enable = true;
         diskSize = 32768;
         memorySize = 2048;
+      };
+      users.users.${testUser} = {
+        isNormalUser = true;
+        extraGroups = [ "podman" ];
+        subUidRanges = [
+          {
+            startUid = 100000;
+            count = 65536;
+          }
+        ];
+        subGidRanges = [
+          {
+            startGid = 100000;
+            count = 65536;
+          }
+        ];
       };
     };
     testScript = ''

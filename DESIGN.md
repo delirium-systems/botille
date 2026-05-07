@@ -2,7 +2,7 @@
 
 ## Goal
 
-Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi, OpenClaw) inside a Nix-built container using rootless Podman, with the current working directory mounted at `/work`. Invoked purely through `nix run` — no separate binary to install.
+Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi) inside a Nix-built container using rootless Podman, with the current working directory mounted at `/work`. Invoked purely through `nix run` — no separate binary to install.
 
 ## Architecture
 
@@ -21,7 +21,7 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi,
 │  │  /home/user    ← named volume          │    │
 │  │  /nix          ← overlay (named vol)   │    │
 │  │                                         │    │
-│  │  nix, claude, gemini, copilot, opencode, pi, openclaw, git …   │    │
+│  │  nix, claude, gemini, copilot, opencode, pi, git …             │    │
 │  │                                         │    │
 │  └─────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────┘
@@ -37,7 +37,7 @@ Run AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi,
 
 ### 2. Container Image (Nix-built)
 - Built with `pkgs.dockerTools.buildLayeredImage`
-- Contains: Nix, Claude Code, Gemini CLI, Copilot CLI, OpenCode, Pi, OpenClaw, bash, git, coreutils, findutils, gnugrep, gnused, gawk, which, less, neovim, iproute2, curl, wget, direnv, nix-direnv, cachix, python3, ripgrep, fd, tree, file, jq, diffutils, unzip, gnutar, gh, openssh, gnupg, nodejs, rsync, tmux, man
+- Contains: Nix, Claude Code, Gemini CLI, Copilot CLI, OpenCode, Pi, bash, git, coreutils, findutils, gnugrep, gnused, gawk, which, less, neovim, iproute2, curl, wget, direnv, nix-direnv, cachix, python3, ripgrep, fd, tree, file, jq, diffutils, unzip, gnutar, gh, openssh, gnupg, nodejs, rsync, tmux, man
 - Agents sourced from [numtide/llm-agents.nix](https://github.com/numtide/llm-agents.nix) (auto-updated daily)
 - Reproducible — fully defined in the Nix flake (`flake.nix` + `nix/` modules)
 
@@ -126,7 +126,7 @@ nix run 'delirium-systems/botille' -- -p 8080:3000 -p 9090:9090
 
 - **Everything is Nix** — flake app, container image, no separate build tool
 - **Container runtime:** Rootless Podman (no Docker daemon, no root required)
-- **Agents:** Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi, OpenClaw — all from [numtide/llm-agents.nix](https://github.com/numtide/llm-agents.nix)
+- **Agents:** Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi — all from [numtide/llm-agents.nix](https://github.com/numtide/llm-agents.nix)
 - **Nix inside container:** allows user/agent to install additional tools on the fly
 
 ## Nix Flake Structure
@@ -166,7 +166,7 @@ flake.nix                 → thin orchestrator wiring modules together
 6. Podman drops `CAP_NET_ADMIN`/`NET_RAW` and starts the container process
 6b. OCI `poststart` hooks fire: ACCEPT rule for the container's own IP (enables pasta port forwarding), and if `--host-port` was used, ACCEPT rules for the gateway on those TCP ports
 7. Entrypoint registers image store paths in the Nix DB and pins a GC root
-8. User lands in a shell with `claude`, `gemini`, `copilot`, `opencode`, `pi`, `openclaw`, `nix`, `git` on `$PATH`, working dir `/work`
+8. User lands in a shell with `claude`, `gemini`, `copilot`, `opencode`, `pi`, `nix`, `git` on `$PATH`, working dir `/work`
 8. On exit, file changes persist in host `cwd`; home directory and nix store persist in volumes
 
 ## Volume Layout
