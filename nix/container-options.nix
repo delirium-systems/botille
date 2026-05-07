@@ -1,10 +1,16 @@
 { home }:
-{ lib, ... }:
+{ lib, config, ... }:
 let
-  inherit (lib) mkOption types;
+  inherit (lib) mkIf mkOption types;
 in
 {
   options = {
+    devshell = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Enable direnv integration inside the container (sets BOTILLE_DEVSHELL=1).";
+    };
+
     volumes = mkOption {
       type = types.listOf types.str;
       default = [
@@ -84,5 +90,9 @@ in
       default = [ ];
       description = "Extra flags passed verbatim to podman run.";
     };
+  };
+
+  config = mkIf config.devshell {
+    environment.BOTILLE_DEVSHELL = "1";
   };
 }
