@@ -1,7 +1,12 @@
 { home }:
 { lib, config, ... }:
 let
-  inherit (lib) mkIf mkOption types;
+  inherit (lib)
+    mkDefault
+    mkIf
+    mkOption
+    types
+    ;
 in
 {
   options = {
@@ -13,10 +18,7 @@ in
 
     volumes = mkOption {
       type = types.listOf types.str;
-      default = [
-        "botille-home:${home}"
-        "botille-nix:/var/nix-store"
-      ];
+      default = [ ];
       description = "Volume mounts passed to podman run as -v flags.";
       example = [ "/host/path:/container/path:Z" ];
     };
@@ -36,26 +38,19 @@ in
 
     dns = mkOption {
       type = types.listOf types.str;
-      default = [
-        "1.1.1.1"
-        "1.0.0.1"
-      ];
+      default = [ ];
       description = "DNS servers for the container.";
     };
 
     network = mkOption {
       type = types.str;
-      default = "pasta:--map-gw,-a,10.171.0.100,-n,24,-g,10.171.0.1";
+      default = "";
       description = "Network mode for the container.";
     };
 
     capabilities = mkOption {
       type = types.lazyAttrsOf (types.nullOr types.bool);
-      default = {
-        SYS_ADMIN = true;
-        NET_ADMIN = false;
-        NET_RAW = false;
-      };
+      default = { };
       description = ''
         Capabilities to configure. true = --cap-add, false = --cap-drop, null = default.
       '';
@@ -63,19 +58,19 @@ in
 
     securityOpt = mkOption {
       type = types.listOf types.str;
-      default = [ "no-new-privileges" ];
+      default = [ ];
       description = "Security options passed to podman run.";
     };
 
     userns = mkOption {
       type = types.nullOr types.str;
-      default = "keep-id";
+      default = null;
       description = "User namespace mode.";
     };
 
     logDriver = mkOption {
       type = types.str;
-      default = "none";
+      default = "";
       description = "Logging driver for the container.";
     };
 
@@ -92,7 +87,32 @@ in
     };
   };
 
-  config = mkIf config.devshell {
-    environment.BOTILLE_DEVSHELL = "1";
+  # Base values. List/attr types use normal priority so extraContainerModules
+  # merge (append) rather than replace. Scalar types use mkDefault so
+  # extraContainerModules can override with a plain assignment.
+  config = {
+    volumes = [
+      "botille-home:${home}"
+      "botille-nix:/var/nix-store"
+    ];
+
+    dns = [
+      "1.1.1.1"
+      "1.0.0.1"
+    ];
+
+    capabilities = {
+      SYS_ADMIN = mkDefault true;
+      NET_ADMIN = mkDefault false;
+      NET_RAW = mkDefault false;
+    };
+
+    securityOpt = [ "no-new-privileges" ];
+
+    network = mkDefault "pasta:--map-gw,-a,10.171.0.100,-n,24,-g,10.171.0.1";
+    userns = mkDefault "keep-id";
+    logDriver = mkDefault "none";
+
+    environment = mkIf config.devshell { BOTILLE_DEVSHELL = "1"; };
   };
 }
