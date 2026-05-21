@@ -76,7 +76,7 @@
             (inputs.home-manager.lib.homeManagerConfiguration {
               inherit pkgs;
               modules = [
-                ./home.nix
+                ./nix/home.nix
               ]
               ++ extraHomeManagerModules;
             }).activationPackage;

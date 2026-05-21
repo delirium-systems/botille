@@ -11,7 +11,10 @@ pkgs.dockerTools.buildLayeredImage {
   maxLayers = 2;
 
   contents = containerPackages ++ [
-    pkgs.dockerTools.fakeNss
+    (pkgs.dockerTools.fakeNss.override {
+      extraPasswdLines = [ "user:x:1000:1000::${home}:/bin/bash" ];
+      extraGroupLines = [ "user:x:1000:" ];
+    })
     nixConf
   ];
 

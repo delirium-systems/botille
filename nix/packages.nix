@@ -81,6 +81,7 @@ in
   # Needed for mount --bind in the entrypoint
   pkgs.util-linux
   pkgs.starship
+  pkgs.getent
   # Home environment
   homeManagerPkg
 ]

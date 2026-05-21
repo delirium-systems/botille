@@ -110,7 +110,8 @@ in
     securityOpt = [ "no-new-privileges" ];
 
     network = mkDefault "pasta:-4,--map-gw,-a,10.171.0.100,-n,24,-g,10.171.0.1";
-    userns = mkDefault "keep-id";
+    userns = mkDefault "keep-id:uid=1000,gid=1000";
+    extraOptions = [ "--passwd=false" ];
     logDriver = mkDefault "none";
 
     environment = mkIf config.devshell { BOTILLE_DEVSHELL = "1"; };
