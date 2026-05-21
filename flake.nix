@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
+    flake-parts.url = "github:hercules-ci/flake-parts";
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -32,18 +32,11 @@
   };
 
   outputs =
-    {
-      self,
-      nixpkgs,
-      flake-utils,
-      home-manager,
-      llm-agents,
-      serena,
-    }:
+    inputs:
     let
       cacheData = import ./nix/caches.nix;
 
-      # Core builder — wraps all per-system derivations so that both
+      # Core builder - wraps all per-system derivations so that both
       # apps.default and lib.mkApp share the same logic.
       mkBotille =
         {
@@ -52,7 +45,7 @@
           extraContainerModules ? [ ],
         }:
         let
-          pkgs = import nixpkgs {
+          pkgs = import inputs.nixpkgs {
             inherit system;
             config.allowUnfree = true;
           };
@@ -72,15 +65,15 @@
 
           containerPackages = import ./nix/packages.nix {
             inherit pkgs;
-            llmAgentsPkgs = llm-agents.packages.${system};
-            homeManagerPkg = home-manager.packages.${system}.home-manager;
-            serenaPkg = serena.packages.${system}.default;
+            llmAgentsPkgs = inputs.llm-agents.packages.${system};
+            homeManagerPkg = inputs.home-manager.packages.${system}.home-manager;
+            serenaPkg = inputs.serena.packages.${system}.default;
           };
 
           # Home-manager activation package (built at Nix time, activated at container start).
           # extraHomeManagerModules are appended last so they can override base settings.
           hmActivation =
-            (home-manager.lib.homeManagerConfiguration {
+            (inputs.home-manager.lib.homeManagerConfiguration {
               inherit pkgs;
               modules = [
                 ./home.nix
@@ -155,39 +148,44 @@
         };
 
     in
-    flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-linux" ] (
-      system:
-      let
-        built = mkBotille { inherit system; };
-        inherit (built) pkgs container launcher;
-        tests = import ./nix/tests.nix { inherit pkgs launcher; };
-      in
-      {
-        packages = {
-          inherit container;
-          default = container;
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+
+      perSystem =
+        { system, ... }:
+        let
+          built = mkBotille { inherit system; };
+          inherit (built) pkgs container launcher;
+          tests = import ./nix/tests.nix { inherit pkgs launcher; };
+        in
+        {
+          packages = {
+            inherit container;
+            default = container;
+          };
+
+          apps.default = built.app;
+
+          checks = {
+            statix = pkgs.runCommand "statix" { nativeBuildInputs = [ pkgs.statix ]; } ''
+              statix check ${inputs.self}
+              touch $out
+            '';
+
+            deadnix = pkgs.runCommand "deadnix" { nativeBuildInputs = [ pkgs.deadnix ]; } ''
+              deadnix --fail ${inputs.self}
+              touch $out
+            '';
+          }
+          // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux tests;
+
+          formatter = pkgs.nixfmt;
         };
 
-        apps.default = built.app;
-
-        checks = {
-          statix = pkgs.runCommand "statix" { nativeBuildInputs = [ pkgs.statix ]; } ''
-            statix check ${self}
-            touch $out
-          '';
-
-          deadnix = pkgs.runCommand "deadnix" { nativeBuildInputs = [ pkgs.deadnix ]; } ''
-            deadnix --fail ${self}
-            touch $out
-          '';
-        }
-        // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux tests;
-
-        formatter = pkgs.nixfmt;
-      }
-    )
-    // {
-      # Flake library — customise the home-manager configuration baked into
+      # Flake library - customise the home-manager configuration baked into
       # the container image without forking this repository.
       #
       # Usage: create a wrapper flake.nix in your project:
@@ -210,7 +208,7 @@
       #
       # Note: customised images are not in the delirium-systems cachix cache
       # and will be built locally on first use.
-      lib = {
+      flake.lib = {
         mkApp =
           {
             system,
