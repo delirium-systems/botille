@@ -109,7 +109,7 @@ in
 
     securityOpt = [ "no-new-privileges" ];
 
-    network = mkDefault "pasta:--map-gw,-a,10.171.0.100,-n,24,-g,10.171.0.1";
+    network = mkDefault "pasta:-4,--map-gw,-a,10.171.0.100,-n,24,-g,10.171.0.1";
     userns = mkDefault "keep-id";
     logDriver = mkDefault "none";
 

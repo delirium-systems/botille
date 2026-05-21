@@ -10,7 +10,7 @@ let
     for cidr in 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10; do
       "$iptables" -A OUTPUT -d "$cidr" -j REJECT
     done
-    for cidr in fc00::/7 fe80::/10; do
+    for cidr in 2000::/3 fc00::/7 fe80::/10 ff00::/8; do
       "$ip6tables" -A OUTPUT -d "$cidr" -j REJECT
     done
   '';
