@@ -72,6 +72,12 @@ in
   pkgs.dnsutils
   pkgs.whois
   pkgs.mtr
+  # Process & debug tools
+  pkgs.procps
+  pkgs.psmisc
+  pkgs.lsof
+  pkgs.htop
+  pkgs.strace
   # Needed for mount --bind in the entrypoint
   pkgs.util-linux
   pkgs.starship
