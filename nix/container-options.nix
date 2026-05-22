@@ -16,6 +16,22 @@ in
       description = "Enable direnv integration inside the container (sets BOTILLE_DEVSHELL=1).";
     };
 
+    allowLan = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Disable the network firewall, allowing the container to reach LAN addresses.";
+    };
+
+    hostPorts = mkOption {
+      type = types.listOf types.port;
+      default = [ ];
+      description = "Host TCP ports the container is allowed to reach through the firewall.";
+      example = [
+        8080
+        11434
+      ];
+    };
+
     volumes = mkOption {
       type = types.listOf types.str;
       default = [ ];

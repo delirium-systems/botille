@@ -136,6 +136,7 @@
           launcher = import ./nix/launcher.nix {
             inherit pkgs container podmanFlags;
             inherit (firewall) hooksDir;
+            inherit (containerConfig) hostPorts allowLan;
           };
 
         in

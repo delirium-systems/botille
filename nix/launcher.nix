@@ -3,9 +3,13 @@
   container,
   hooksDir,
   podmanFlags,
+  hostPorts ? [ ],
+  allowLan ? false,
 }:
 let
   staticFlags = builtins.concatStringsSep " \\\n      " podmanFlags;
+  hostPortsInit = builtins.concatStringsSep " " (map toString hostPorts);
+  allowLanInit = if allowLan then "true" else "false";
 in
 pkgs.writeShellApplication {
   name = "botille-run";
@@ -55,10 +59,10 @@ pkgs.writeShellApplication {
     done
 
     # Runtime flags — these layer on top of the declarative config
-    allow_lan=false
+    allow_lan=${allowLanInit}
     devshell=false
     port_flags=()
-    host_ports=()
+    host_ports=(${hostPortsInit})
     volume_flags=()
     container_args=()
     while [ $# -gt 0 ]; do
