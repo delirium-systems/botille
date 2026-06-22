@@ -227,6 +227,10 @@ in
     username = "user";
     homeDirectory = "/home/user";
     stateVersion = "25.11";
+    sessionVariables = {
+      EDITOR = "nvim";
+      VISUAL = "nvim";
+    };
   };
 
   # No systemd in container
