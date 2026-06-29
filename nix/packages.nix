@@ -8,6 +8,14 @@ let
   claude-yolo = pkgs.writeShellScriptBin "claude-yolo" ''
     exec claude --dangerously-skip-permissions "$@"
   '';
+
+  # Upstream postPatch calls `node` which leaks into fetchNpmDeps (stdenvNoCC,
+  # no nodejs). Add nodejs to the FOD's nativeBuildInputs so the patch runs.
+  gemini-cli = llmAgentsPkgs.gemini-cli.overrideAttrs (old: {
+    npmDeps = old.npmDeps.overrideAttrs (odeps: {
+      nativeBuildInputs = odeps.nativeBuildInputs ++ [ pkgs.nodejs ];
+    });
+  });
 in
 [
   pkgs.bash
@@ -32,7 +40,7 @@ in
   # AI agents
   llmAgentsPkgs.claude-code
   claude-yolo
-  llmAgentsPkgs.gemini-cli
+  gemini-cli
   llmAgentsPkgs.copilot-cli
   llmAgentsPkgs.opencode
   llmAgentsPkgs.pi
