@@ -58,6 +58,16 @@ pkgs.writeShellApplication {
       fi
     done
 
+    # Forward host timezone
+    tz_env=""
+    if [ -n "''${TZ:-}" ]; then
+      tz_env="-e TZ=$TZ"
+    fi
+    tz_mount=""
+    if [ -f /etc/localtime ]; then
+      tz_mount="-v /etc/localtime:/etc/localtime:ro"
+    fi
+
     # Runtime flags — these layer on top of the declarative config
     allow_lan=${allowLanInit}
     devshell=false
@@ -158,6 +168,8 @@ pkgs.writeShellApplication {
       $host_port_annotation \
       $term_env \
       $devshell_env \
+      $tz_env \
+      $tz_mount \
       "''${port_flags[@]}" \
       "''${volume_flags[@]}" \
       --detach-keys="" \
