@@ -80,6 +80,13 @@ mkdir -p "@home@/.local/state/nix/profiles"
 hm_marker="@home@/.local/state/botille/hm-generation"
 hm_generation="@hmActivation@"
 if ! [ -f "$hm_marker" ] || [ "$(<"$hm_marker")" != "$hm_generation" ]; then
+  # Clear new-format profiles that are incompatible with nix-env.
+  # HM's installPackages uses nix-env; if the agent ran `nix profile install`
+  # the default profile is converted to new-format and activation fails.
+  prof="@home@/.local/state/nix/profiles/profile"
+  if [ -e "$prof/manifest.json" ]; then
+    rm -f "$prof" "$prof"-*-link
+  fi
   "$hm_generation/activate"
   mkdir -p "$(dirname "$hm_marker")"
   printf '%s' "$hm_generation" > "$hm_marker"
