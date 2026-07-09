@@ -50,6 +50,8 @@ pkgs.dockerTools.buildLayeredImage {
       "NPM_CONFIG_USERCONFIG=${home}/.config/npm/npmrc"
       "NPM_CONFIG_CACHE=${home}/.cache/npm"
       "WGETRC=${home}/.config/wget/wgetrc"
+      "GNUPGHOME=${home}/.config/gnupg"
+      "PI_CODING_AGENT_DIR=${home}/.config/pi"
       "GEMINI_CLI_HOME=${home}/.local/state/gemini"
       "SERENA_HOME=${home}/.config/serena"
       "COLORTERM=truecolor"

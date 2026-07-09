@@ -42,21 +42,23 @@ let
     permissions = {
       deny = [
         "Bash(* /home/user/.ssh*)"
-        "Bash(* /home/user/.gnupg*)"
+        "Bash(* /home/user/.config/gnupg*)"
         "Bash(* /home/user/.aws*)"
         "Bash(* /home/user/.netrc*)"
         "Bash(* /home/user/.git-credentials*)"
         "Bash(* /home/user/.config/gh*)"
         "Bash(* /home/user/.config/claude/.credentials*)"
         "Bash(* /home/user/.config/git/credentials*)"
+        "Bash(* /home/user/.config/pi/auth.json*)"
         "Read(/home/user/.config/claude/.credentials*)"
         "Read(/home/user/.ssh/**)"
-        "Read(/home/user/.gnupg/**)"
+        "Read(/home/user/.config/gnupg/**)"
         "Read(/home/user/.netrc)"
         "Read(/home/user/.aws/**)"
         "Read(/home/user/.config/gh/**)"
         "Read(/home/user/.config/git/credentials)"
         "Read(/home/user/.git-credentials)"
+        "Read(/home/user/.config/pi/auth.json)"
       ];
       allow = [
         "Bash(*#*)"
