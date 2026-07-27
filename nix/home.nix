@@ -71,8 +71,6 @@ let
         "Read(/work/**)"
         "WebFetch"
         "WebSearch"
-        "Write(/tmp/**)"
-        "Write(/work/**)"
         "Bash(alejandra:*)"
         "Bash(awk:*)"
         "Bash(b2sum:*)"
