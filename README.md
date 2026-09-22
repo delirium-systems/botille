@@ -106,7 +106,7 @@ Then `nix run .` to use your customised container. Modules merge with standard N
 1. **Launcher** checks if the current container image is already loaded in Podman; reloads only when the Nix store path changes
 2. **OCI hooks** apply iptables rules in two stages: REJECT rules blocking RFC1918, CGNAT, and link-local ranges at `createContainer` (before the process starts), then an ACCEPT rule for the container's own IP at `poststart` (so pasta can forward exposed ports). `CAP_NET_ADMIN`/`CAP_NET_RAW` are dropped so rules are immutable from inside
 3. **Entrypoint** copies the image's Nix store to a persistent volume (first run only), registers store paths in the Nix DB, pins a GC root, and runs home-manager activation
-4. **Container starts** with your `$PWD` at `/work`, tools on `$PATH`, DNS forced to 1.1.1.1/1.0.0.1
+4. **Container starts** with your `$PWD` at `/work`, tools on `$PATH`, DNS forwarded to the host's resolver via pasta (`--dns-forward 198.18.0.53`)
 
 ### Volumes
 

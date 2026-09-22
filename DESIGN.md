@@ -74,7 +74,7 @@ This allows the container to reach host services without opening the LAN.
   - `100.64.0.0/10` (CGNAT)
   - `fc00::/7`, `fe80::/10` (IPv6 ULA/link-local)
 - `CAP_NET_ADMIN` and `CAP_NET_RAW` are dropped — the container process cannot modify the rules
-- Public DNS forced (`--dns=1.1.1.1 --dns=1.0.0.1`) so DNS traffic bypasses private-range blocks regardless of Podman network backend
+- Host DNS via pasta: `--dns-forward 198.18.0.53` (IANA benchmarking range, outside the blocked ranges) makes pasta intercept DNS from the container and re-originate it on the host side to the host's own resolver (works with loopback stubs like systemd-resolved's `127.0.0.53`). The container only ever talks to `198.18.0.53`, so the private-range blocks are never in the path. Split DNS and VPN resolvers on the host work; LAN names resolve, but connections to the returned private addresses are still rejected
 - Hooks are annotation-gated so they only fire for botille containers
 - If the `createContainer` hook fails, container creation aborts (fail-safe)
 - Result: container can reach the public internet (Claude API) but not the LAN; rules are immutable from inside

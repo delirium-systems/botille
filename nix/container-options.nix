@@ -112,9 +112,10 @@ in
       "botille-nix:/var/nix-store"
     ];
 
+    # Virtual address intercepted by pasta (--dns-forward) and proxied to the
+    # host's resolver. Must stay outside the ranges blocked by firewall.nix.
     dns = [
-      "1.1.1.1"
-      "1.0.0.1"
+      "198.18.0.53"
     ];
 
     capabilities = {
@@ -125,7 +126,7 @@ in
 
     securityOpt = [ "no-new-privileges" ];
 
-    network = mkDefault "pasta:-4,--map-gw,-a,10.171.0.100,-n,24,-g,10.171.0.1";
+    network = mkDefault "pasta:-4,--map-gw,-a,10.171.0.100,-n,24,-g,10.171.0.1,--dns-forward,198.18.0.53";
     userns = mkDefault "keep-id:uid=1000,gid=1000";
     extraOptions = [ "--passwd=false" ];
     logDriver = mkDefault "none";
