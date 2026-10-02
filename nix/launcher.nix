@@ -33,6 +33,11 @@ pkgs.writeShellApplication {
       echo "botille: image up to date" >&2
     fi
 
+    # Can't be a declarative container-options.nix volume: render-podman-flags.nix
+    # escapes it to a literal -v flag at Nix build time, before $HOME is known.
+    status_dir="''${XDG_STATE_HOME:-$HOME/.local/state}/botille/status"
+    mkdir -p "$status_dir"
+
     tty_flag=""
     if [ -t 0 ]; then
       tty_flag="-it"
@@ -175,6 +180,7 @@ pkgs.writeShellApplication {
       --detach-keys="" \
       --cidfile "$cidfile" \
       -v "$PWD:/work" \
+      -v "$status_dir:/run/botille-status" \
       "$image" "''${container_args[@]}"
   '';
 }

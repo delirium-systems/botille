@@ -3,6 +3,7 @@
   llmAgentsPkgs,
   homeManagerPkg,
   serenaPkg,
+  botilleStatus,
 }:
 let
   claude-yolo = pkgs.writeShellScriptBin "claude-yolo" ''
@@ -40,6 +41,7 @@ in
   # AI agents
   llmAgentsPkgs.claude-code
   claude-yolo
+  botilleStatus
   gemini-cli
   llmAgentsPkgs.copilot-cli
   llmAgentsPkgs.opencode

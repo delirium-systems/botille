@@ -63,12 +63,16 @@
           renderPodmanFlags = import ./nix/render-podman-flags.nix { inherit (pkgs) lib; };
           podmanFlags = renderPodmanFlags containerConfig;
 
+          botilleStatus = import ./nix/botille-status.nix { inherit pkgs; };
+
           containerPackages = import ./nix/packages.nix {
-            inherit pkgs;
+            inherit pkgs botilleStatus;
             llmAgentsPkgs = inputs.llm-agents.packages.${system};
             homeManagerPkg = inputs.home-manager.packages.${system}.home-manager;
             serenaPkg = inputs.serena.packages.${system}.default;
           };
+
+          claudeManagedSettings = import ./nix/claude-managed-settings.nix { inherit pkgs botilleStatus; };
 
           # Home-manager activation package (built at Nix time, activated at container start).
           # extraHomeManagerModules are appended last so they can override base settings.
@@ -99,6 +103,7 @@
             rootPaths = containerPackages ++ [
               pkgs.dockerTools.fakeNss
               nixConf
+              claudeManagedSettings
               hmActivation
             ];
           };
@@ -128,6 +133,7 @@
               pkgs
               containerPackages
               nixConf
+              claudeManagedSettings
               entrypoint
               home
               ;

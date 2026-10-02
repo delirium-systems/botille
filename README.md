@@ -16,6 +16,7 @@ Run coding agents inside a sandboxed, LAN-isolated rootless Podman container. Ev
 - 🌐 Blocks all LAN/private network access via iptables OCI hooks — only public internet allowed
 - 🔑 Persists credentials and Nix store across runs via named Podman volumes
 - 🧑 Runs rootless — no daemon, no root, your UID mapped into the container
+- 📊 Reports each session's status (idle, working, needs-input) to the host as JSON, for monitoring from outside the container
 
 ## 🚀 Usage
 
@@ -117,6 +118,74 @@ Then `nix run .` to use your customised container. Modules merge with standard N
 | `/var/nix-store` | `botille-nix` | Nix store (persists `nix shell`/`nix-env` installs) |
 
 Reset all state: `podman volume rm botille-home botille-nix`
+
+## 📊 Agent status
+
+Each Claude Code session inside the container writes its state to a JSON file on the host.
+This lets you monitor what an agent is doing from outside the container.
+
+Files appear in `${XDG_STATE_HOME:-~/.local/state}/botille/status/` on the host.
+The launcher creates this directory and bind-mounts it at `/run/botille-status` inside the container.
+
+File name: `<agent>-<session_id>.json`.
+
+| Field | Meaning |
+|---|---|
+| `agent` | Harness name (e.g. `claude`) |
+| `state` | `idle`, `working`, or `needs-input` |
+| `session_id` | Session identifier |
+| `cwd` | Working directory inside the container, e.g. `/work` |
+| `event` | Hook or report event name |
+| `host` | Container ID |
+| `ts` | Unix timestamp, in seconds |
+
+States:
+
+- `idle`: the session started, or Claude finished its turn and is waiting for a prompt
+- `working`: a prompt was submitted, or a tool is about to run
+- `needs-input`: a permission prompt is showing
+
+The file is deleted when the session ends.
+
+Claude Code reports through hooks shipped in the image at `/etc/claude-code/managed-settings.json`.
+These hooks run in addition to any hooks you add yourself.
+
+Other harnesses can report through the same script:
+
+```sh
+botille-status [--agent NAME] [--session ID] [--cwd DIR] [--event NAME] STATE
+```
+
+With `--session`, the script does not read stdin, so a plugin can call it directly.
+Without `--session`, it reads Claude-style hook JSON (`session_id`, `cwd`, `hook_event_name`) from stdin.
+It always exits 0 and prints nothing.
+Only Claude Code is wired up at present.
+
+Files are replaced atomically: a temp file is written, then renamed with `mv` in the same directory.
+Watch the directory, not a single file.
+
+Event-driven example with `inotifywait` (no polling):
+
+```sh
+inotifywait -m -q -e moved_to,delete --format '%e %f' \
+  ~/.local/state/botille/status |
+while read -r ev f; do
+  case $f in *.json) ;; *) continue ;; esac
+  if [ "$ev" = DELETE ]; then
+    echo "$f ended"
+  else
+    jq -c '{agent, state, cwd}' ~/.local/state/botille/status/"$f"
+  fi
+done
+```
+
+If `inotifywait` is missing, get it with `nix shell nixpkgs#inotify-tools`.
+
+One-shot snapshot instead of watching:
+
+```sh
+jq -c '{agent, state, cwd}' ~/.local/state/botille/status/*.json
+```
 
 ## 🛡️ Security
 

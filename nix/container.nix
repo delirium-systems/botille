@@ -2,6 +2,7 @@
   pkgs,
   containerPackages,
   nixConf,
+  claudeManagedSettings,
   entrypoint,
   home,
 }:
@@ -16,12 +17,13 @@ pkgs.dockerTools.buildLayeredImage {
       extraGroupLines = [ "user:x:1000:" ];
     })
     nixConf
+    claudeManagedSettings
   ];
 
   fakeRootCommands = ''
-    mkdir -p tmp var/tmp work .${home} usr/bin var/nix-store
+    mkdir -p tmp var/tmp work .${home} usr/bin var/nix-store run/botille-status
     chmod 1777 tmp var/tmp
-    chmod 777 work .${home} var/nix-store
+    chmod 777 work .${home} var/nix-store run/botille-status
     mkdir -p nix/store nix/var
     ln -s ${pkgs.coreutils}/bin/env usr/bin/env
   '';
