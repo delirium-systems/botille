@@ -170,7 +170,7 @@ States:
 
 - `idle`: the session started, or Claude finished its turn and is waiting for a prompt
 - `working`: a prompt was submitted, or a tool is about to run
-- `needs-input`: a permission prompt is showing
+- `needs-input`: a permission prompt is showing, or Claude asked you a question
 
 The file is deleted when the session ends.
 

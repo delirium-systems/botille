@@ -25,12 +25,22 @@ pkgs.writeTextDir "etc/claude-code/managed-settings.json" (
         }
       ];
       PreToolUse = [
+        # Same-event hooks run in parallel; exclude AskUserQuestion so the two state writes don't race.
         {
-          matcher = "*";
+          matcher = "^(?!AskUserQuestion$)";
           hooks = [
             {
               type = "command";
               command = "${botilleStatus}/bin/botille-status --agent claude working";
+            }
+          ];
+        }
+        {
+          matcher = "AskUserQuestion";
+          hooks = [
+            {
+              type = "command";
+              command = "${botilleStatus}/bin/botille-status --agent claude needs-input";
             }
           ];
         }
