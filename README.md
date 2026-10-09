@@ -153,6 +153,18 @@ File name: `<agent>-<session_id>.json`.
 | `event` | Hook or report event name |
 | `host` | Container ID |
 | `ts` | Unix timestamp, in seconds |
+| `model` | Model ID, e.g. `claude-opus-5-5` |
+| `effort` | Effort level: `low`, `medium`, `high`, `xhigh` or `max` |
+| `permission_mode` | Permission mode, e.g. `default` or `bypassPermissions` |
+| `session_title` | Session title |
+| `transcript_path` | Path of the session transcript inside the container |
+
+`model` comes from the `SessionStart` and `PostModelSwitch` hooks.
+`effort` is null until the first tool call of the session, and refreshes on tool calls.
+There is no hook for `/effort`, so a change shows up at the next tool call.
+A detail field keeps its last known value until a hook reports a new one.
+Hooks fired by subagents (the payload has `agent_id`) do not change the detail fields.
+These fields are null for agents that do not report them, such as those using `--session`.
 
 States:
 
@@ -168,11 +180,13 @@ These hooks run in addition to any hooks you add yourself.
 Other harnesses can report through the same script:
 
 ```sh
-botille-status [--agent NAME] [--session ID] [--cwd DIR] [--event NAME] STATE
+botille-status [--agent NAME] [--session ID] [--cwd DIR] [--event NAME] [STATE]
 ```
 
+Without `STATE`, the script keeps the state of the existing file and does nothing if there is none.
+
 With `--session`, the script does not read stdin, so a plugin can call it directly.
-Without `--session`, it reads Claude-style hook JSON (`session_id`, `cwd`, `hook_event_name`) from stdin.
+Without `--session`, it reads Claude-style hook JSON from stdin: `session_id`, `cwd` and `hook_event_name`, plus the detail fields above (`model` or `to_model`, `effort.level`, `permission_mode`, `session_title` and `transcript_path`).
 It always exits 0 and prints nothing.
 Only Claude Code is wired up at present.
 

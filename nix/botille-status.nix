@@ -65,7 +65,6 @@ pkgs.writeShellApplication {
           ;;
       esac
     done
-    "$have_state" || exit 0
     valid_name "$agent" || exit 0
 
     # Hooks must never fail or block their harness, and must stay silent on
@@ -79,6 +78,7 @@ pkgs.writeShellApplication {
       if "$have_session"; then
         "$have_cwd" || cwd="''${PWD:-}"
         "$have_event" || event=""
+        details='{}'
       else
         input="$(cat)" || exit 0
         session_id="$(printf '%s' "$input" | jq -r '.session_id // empty')" || exit 0
@@ -87,6 +87,15 @@ pkgs.writeShellApplication {
           [ -n "$cwd" ] || cwd="''${PWD:-}"
         fi
         event="$(printf '%s' "$input" | jq -r '.hook_event_name // empty')" || exit 0
+        details="$(printf '%s' "$input" | jq -c --arg effort "''${CLAUDE_EFFORT:-}" '
+          # Subagents share the session_id but may differ in effort and permission mode.
+          if (.agent_id // "") != "" then {} else {
+            model: (.model // .to_model),
+            effort: (.effort.level // (if $effort == "" then null else $effort end)),
+            permission_mode,
+            session_title,
+            transcript_path
+          } end')" || exit 0
       fi
 
       valid_name "$session_id" || exit 0
@@ -97,6 +106,15 @@ pkgs.writeShellApplication {
         return 0
       fi
 
+      # A corrupt or missing old file counts as empty.
+      old="$(jq -c 'if type == "object" then . else {} end' "$file" 2>/dev/null)" || old='{}'
+
+      # Without a state (PostModelSwitch) only refresh details of a known session.
+      if ! "$have_state"; then
+        state="$(printf '%s' "$old" | jq -r '.state // empty')" || exit 0
+        [ -n "$state" ] || exit 0
+      fi
+
       tmp="$(mktemp "$dir/.$agent-$session_id.XXXXXX")" || exit 0
       if jq -n \
         --arg state "$state" \
@@ -105,8 +123,12 @@ pkgs.writeShellApplication {
         --arg cwd "$cwd" \
         --arg event "$event" \
         --arg host "''${HOSTNAME:-unknown}" \
+        --argjson old "$old" \
+        --argjson new "$details" \
         --argjson ts "$(date +%s)" \
-        '{state: $state, agent: $agent, session_id: $session_id, cwd: $cwd, event: (if $event == "" then null else $event end), host: $host, ts: $ts}' \
+        '$old + {state: $state, agent: $agent, session_id: $session_id, cwd: $cwd, event: (if $event == "" then null else $event end), host: $host, ts: $ts}
+          + (reduce ("model", "effort", "permission_mode", "session_title", "transcript_path") as $k ({};
+              .[$k] = (if ($new[$k] // "") == "" then $old[$k] else $new[$k] end)))' \
         >"$tmp"
       then
         mv -f "$tmp" "$file"

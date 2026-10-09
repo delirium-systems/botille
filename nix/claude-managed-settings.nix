@@ -35,6 +35,17 @@ pkgs.writeTextDir "etc/claude-code/managed-settings.json" (
           ];
         }
       ];
+      # No state argument: only refreshes the model, never the state.
+      PostModelSwitch = [
+        {
+          hooks = [
+            {
+              type = "command";
+              command = "${botilleStatus}/bin/botille-status --agent claude";
+            }
+          ];
+        }
+      ];
       Notification = [
         {
           matcher = "permission_prompt";
