@@ -68,8 +68,10 @@ Authenticate interactively inside the container on first run — credentials per
 
 Create a wrapper `flake.nix` to customise the container without forking. `lib.mkApp` accepts two module lists:
 
-- **`extraHomeManagerModules`** — home-manager config (git identity, extra packages, shell aliases, etc.)
+- **`extraHomeManagerModules`** — home-manager config (git identity, extra packages, shell aliases, etc.; `home.packages` binaries are on PATH, after the image packages)
 - **`extraContainerModules`** — podman run flags (volumes, ports, environment, DNS, capabilities, etc.; see `nix/container-options.nix` for all options)
+
+The wrapper flake needs its own `nixConfig`, because Nix reads `nixConfig` only from the top-level flake, not from inputs.
 
 ```nix
 {
@@ -94,6 +96,19 @@ Create a wrapper `flake.nix` to customise the container without forking. `lib.mk
         }
       ];
     };
+  };
+
+  nixConfig = {
+    extra-substituters = [
+      "https://delirium-systems.cachix.org"
+      "https://cache.numtide.com"
+      "https://nix-community.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "delirium-systems.cachix.org-1:66ovNl3TR96B++WAvUK0U6nmrejRLR3DYoFzQbKnPHs="
+      "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+      "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+    ];
   };
 }
 ```

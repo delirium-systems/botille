@@ -33,7 +33,7 @@ pkgs.dockerTools.buildLayeredImage {
     Cmd = [ "/bin/bash" ];
     WorkingDir = "/work";
     Env = [
-      "PATH=${pkgs.lib.makeBinPath containerPackages}"
+      "PATH=${pkgs.lib.makeBinPath containerPackages}:${home}/.local/state/nix/profiles/profile/bin"
       "USER=user"
       "HOME=${home}"
       "XDG_CONFIG_HOME=${home}/.config"

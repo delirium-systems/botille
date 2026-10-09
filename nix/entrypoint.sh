@@ -69,7 +69,7 @@ ln -sfn @imageClosureInfo@ /nix/var/nix/gcroots/botille-image
 # unusable after an update, run: source /var/nix-store/botille-reload
 cat > "$nix_vol/botille-reload" << 'RELOAD'
 _p=""; for _d in /nix/store/*/bin; do [ -d "$_d" ] && _p="$_p:$_d"; done
-export PATH="${_p#:}"; unset _p _d
+export PATH="${_p#:}:$HOME/.local/state/nix/profiles/profile/bin"; unset _p _d
 unset BASH_COMPLETION_VERSINFO
 [ -r "$HOME/.bashrc" ] && . "$HOME/.bashrc"
 echo "Shell environment reloaded." >&2
