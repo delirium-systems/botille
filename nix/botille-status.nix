@@ -1,5 +1,5 @@
 # Mirrors an agent harness session's lifecycle state to the host as JSON.
-# Claude hooks live in claude-managed-settings.nix; other harnesses call --agent/--session.
+# Claude/Codex hooks and the pi extension all call this shared reporter.
 { pkgs }:
 pkgs.writeShellApplication {
   name = "botille-status";
@@ -96,6 +96,32 @@ pkgs.writeShellApplication {
             session_title,
             transcript_path
           } end')" || exit 0
+      fi
+
+      # Codex's hook config calls the reporter directly with STATE=auto.
+      # Explicit states and metadata-only updates retain their existing behavior.
+      if [ "$state" = auto ]; then
+        [ "$agent" = codex ] && ! "$have_session" || return 0
+        # Child hooks share the parent's session ID; they must not mark it idle.
+        [ "$(printf '%s' "$input" | jq -r '.agent_id // empty')" = "" ] || return 0
+        case "$event" in
+          SessionStart)
+            state=idle
+            [ "$(printf '%s' "$input" | jq -r '.source // empty')" != compact ] || state=working
+            ;;
+          UserPromptSubmit|PostToolUse|PreCompact|PostCompact) state=working ;;
+          PreToolUse)
+            tool=$(printf '%s' "$input" | jq -r '.tool_name // empty')
+            case "$tool" in
+              request_user_input|request_user_input_async|*__request_user_input|*__request_user_input_async) state=needs-input ;;
+              *) state=working ;;
+            esac
+            ;;
+          PermissionRequest) state=needs-input ;;
+          Stop|Interrupt) state=idle ;;
+          SessionEnd) state=ended ;;
+          *) return 0 ;;
+        esac
       fi
 
       valid_name "$session_id" || exit 0

@@ -4,6 +4,10 @@ let
 
   tools = [
     {
+      name = "codex";
+      bin = "codex";
+    }
+    {
       name = "claude-code";
       bin = "claude";
     }

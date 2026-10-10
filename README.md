@@ -12,7 +12,7 @@ Run coding agents inside a sandboxed, LAN-isolated rootless Podman container. Ev
 
 ## 🔒 What it does
 
-- 📦 Builds a reproducible OCI container image with Claude Code, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi, Nix, git, and common dev tools
+- 📦 Builds a reproducible OCI container image with Claude Code, Codex, Gemini CLI, GitHub Copilot CLI, OpenCode, Pi, Nix, git, and common dev tools
 - 🌐 Blocks all LAN/private network access via iptables OCI hooks — only public internet allowed
 - 🔑 Persists credentials and Nix store across runs via named Podman volumes
 - 🧑 Runs rootless — no daemon, no root, your UID mapped into the container
@@ -136,7 +136,7 @@ Reset all state: `podman volume rm botille-home botille-nix`
 
 ## 📊 Agent status
 
-Each Claude Code session inside the container writes its state to a JSON file on the host.
+Each Claude Code, Codex, and pi session inside the container writes its state to a JSON file on the host.
 This lets you monitor what an agent is doing from outside the container.
 
 Files appear in `${XDG_STATE_HOME:-~/.local/state}/botille/status/` on the host.
@@ -146,7 +146,7 @@ File name: `<agent>-<session_id>.json`.
 
 | Field | Meaning |
 |---|---|
-| `agent` | Harness name (e.g. `claude`) |
+| `agent` | Harness name: `claude`, `codex`, or `pi` |
 | `state` | `idle`, `working`, or `needs-input` |
 | `session_id` | Session identifier |
 | `cwd` | Working directory inside the container, e.g. `/work` |
@@ -154,13 +154,13 @@ File name: `<agent>-<session_id>.json`.
 | `host` | Container ID |
 | `ts` | Unix timestamp, in seconds |
 | `model` | Model ID, e.g. `claude-opus-5-5` |
-| `effort` | Effort level: `low`, `medium`, `high`, `xhigh` or `max` |
+| `effort` | Harness effort/thinking level, e.g. `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max` |
 | `permission_mode` | Permission mode, e.g. `default` or `bypassPermissions` |
 | `session_title` | Session title |
 | `transcript_path` | Path of the session transcript inside the container |
 
-`model` comes from the `SessionStart` and `PostModelSwitch` hooks.
-`effort` is null until the first tool call of the session, and refreshes on tool calls.
+For Claude, `model` comes from the `SessionStart` and `PostModelSwitch` hooks.
+Claude's `effort` is null until the first tool call of the session, and refreshes on tool calls.
 There is no hook for `/effort`, so a change shows up at the next tool call.
 A detail field keeps its last known value until a hook reports a new one.
 Hooks fired by subagents (the payload has `agent_id`) do not change the detail fields.
@@ -168,14 +168,20 @@ These fields are null for agents that do not report them, such as those using `-
 
 States:
 
-- `idle`: the session started, or Claude finished its turn and is waiting for a prompt
+- `idle`: the session started, or the agent finished its turn and is waiting for a prompt
 - `working`: a prompt was submitted, or a tool is about to run
-- `needs-input`: a permission prompt is showing, or Claude asked you a question
+- `needs-input`: a permission prompt or a supported blocking question/dialog is showing
 
 The file is deleted when the session ends.
 
 Claude Code reports through hooks shipped in the image at `/etc/claude-code/managed-settings.json`.
 These hooks run in addition to any hooks you add yourself.
+
+Codex reports through trusted [system hooks](https://learn.chatgpt.com/docs/hooks) at `/etc/codex/hooks.json`, alongside user/project hooks.
+Disabling `features.hooks` disables reporting.
+
+Pi reports through an extension at `$PI_CODING_AGENT_DIR/extensions/botille-status.js` (normally `~/.config/pi/extensions/botille-status.js`).
+Disabling extensions disables reporting.
 
 Other harnesses can report through the same script:
 
@@ -184,11 +190,13 @@ botille-status [--agent NAME] [--session ID] [--cwd DIR] [--event NAME] [STATE]
 ```
 
 Without `STATE`, the script keeps the state of the existing file and does nothing if there is none.
+Codex hooks call `botille-status --agent codex auto`, which derives the state from the hook event JSON.
+Pi's extension calls `botille-status --agent pi STATE` directly.
 
 With `--session`, the script does not read stdin, so a plugin can call it directly.
 Without `--session`, it reads Claude-style hook JSON from stdin: `session_id`, `cwd` and `hook_event_name`, plus the detail fields above (`model` or `to_model`, `effort.level`, `permission_mode`, `session_title` and `transcript_path`).
 It always exits 0 and prints nothing.
-Only Claude Code is wired up at present.
+Claude Code, Codex, and pi are wired up by default after rebuilding/restarting Botille.
 
 Files are replaced atomically: a temp file is written, then renamed with `mv` in the same directory.
 Watch the directory, not a single file.

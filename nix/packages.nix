@@ -40,8 +40,10 @@ in
   pkgs.cacert
   # AI agents
   llmAgentsPkgs.claude-code
+  llmAgentsPkgs.codex
   claude-yolo
   botilleStatus
+  (import ./codex-managed-hooks.nix { inherit pkgs botilleStatus; })
   gemini-cli
   llmAgentsPkgs.copilot-cli
   llmAgentsPkgs.opencode

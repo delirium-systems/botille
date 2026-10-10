@@ -81,6 +81,13 @@
               inherit pkgs;
               modules = [
                 ./nix/home.nix
+                {
+                  xdg.configFile."pi/extensions/botille-status.js".source = pkgs.writeText "pi-botille-status.js" (
+                    builtins.replaceStrings [ "@botilleStatus@" ] [ "${botilleStatus}" ] (
+                      builtins.readFile ./nix/pi-status-extension.js
+                    )
+                  );
+                }
               ]
               ++ extraHomeManagerModules;
             }).activationPackage;
@@ -177,6 +184,8 @@
           apps.default = built.app;
 
           checks = {
+            agent-status = import ./nix/botille-status-tests.nix { inherit pkgs; };
+
             statix = pkgs.runCommand "statix" { nativeBuildInputs = [ pkgs.statix ]; } ''
               statix check ${inputs.self}
               touch $out
