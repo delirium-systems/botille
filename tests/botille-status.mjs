@@ -1,7 +1,8 @@
 // Regression checks for the shared botille-status reporter and its integrations.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -9,6 +10,8 @@ import { pathToFileURL } from "node:url";
 const [hooksFile, extensionFile] = process.argv.slice(2);
 const dir = mkdtempSync(join(tmpdir(), "botille-status-test-"));
 process.env.BOTILLE_STATUS_DIR = dir;
+process.env.CODEX_HOME = join(dir, "codex-home");
+mkdirSync(process.env.CODEX_HOME);
 const file = (agent, id) => join(dir, `${agent}-${id}.json`);
 const read = (agent, id) => JSON.parse(readFileSync(file(agent, id), "utf8"));
 try {
@@ -27,6 +30,8 @@ try {
   }
   codex("SessionStart", { source: "startup", model: "test-model" });
   assert.equal(read("codex", "codex-test").state, "idle");
+  assert.equal(read("codex", "codex-test").session_title, null);
+  assert.equal(read("codex", "codex-test").effort, null);
   codex("UserPromptSubmit");
   assert.equal(read("codex", "codex-test").state, "working");
   codex("Stop", { agent_id: "child", model: "child-model" });
@@ -50,6 +55,49 @@ try {
   }
   codex("SessionEnd");
   assert.equal(existsSync(file("codex", "codex-test")), false);
+
+  // Codex does not include effort/title in hook payloads. Its displayed name
+  // differs from the first-prompt title, and metadata can change mid-session.
+  const database = new DatabaseSync(join(process.env.CODEX_HOME, "state_5.sqlite"));
+  try {
+    database.exec("CREATE TABLE threads (id TEXT PRIMARY KEY, title TEXT, name TEXT, reasoning_effort TEXT)");
+    database.prepare("INSERT INTO threads VALUES (?, ?, ?, ?)").run("codex-test", "hi", "Status hooks", "xhigh");
+    database.prepare("INSERT INTO threads VALUES (?, ?, ?, ?)").run("unrelated", "Other session", "Other name", "low");
+    codex("SessionStart");
+    assert.equal(read("codex", "codex-test").session_title, "Status hooks");
+    assert.equal(read("codex", "codex-test").effort, "xhigh");
+    database.exec("UPDATE threads SET name = 'Renamed session', reasoning_effort = 'high' WHERE id = 'codex-test'");
+    codex("PreToolUse", { agent_id: "child", session_title: "Child", effort: { level: "low" } });
+    assert.equal(read("codex", "codex-test").session_title, "Status hooks");
+    assert.equal(read("codex", "codex-test").effort, "xhigh");
+    codex("PreToolUse", { tool_name: "Bash" });
+    assert.equal(read("codex", "codex-test").session_title, "Renamed session");
+    assert.equal(read("codex", "codex-test").effort, "high");
+    codex("PostToolUse", { session_title: "From hook", effort: { level: "medium" } });
+    assert.equal(read("codex", "codex-test").session_title, "From hook");
+    assert.equal(read("codex", "codex-test").effort, "medium");
+    database.exec("BEGIN EXCLUSIVE");
+    codex("PermissionRequest");
+    assert.equal(read("codex", "codex-test").state, "needs-input");
+    assert.equal(read("codex", "codex-test").session_title, "From hook");
+    assert.equal(read("codex", "codex-test").effort, "medium");
+    database.exec("ROLLBACK");
+    codex("SessionEnd");
+    assert.equal(existsSync(file("codex", "codex-test")), false);
+    database.exec("UPDATE threads SET name = NULL WHERE id = 'codex-test'");
+    codex("SessionStart");
+    assert.equal(read("codex", "codex-test").session_title, "hi");
+    codex("SessionEnd");
+    // A corrupt newer database must not select stale metadata from version 5.
+    writeFileSync(join(process.env.CODEX_HOME, "state_6.sqlite"), "not sqlite");
+    codex("SessionStart");
+    assert.equal(read("codex", "codex-test").state, "idle");
+    assert.equal(read("codex", "codex-test").session_title, null);
+    assert.equal(read("codex", "codex-test").effort, null);
+    codex("SessionEnd");
+  } finally {
+    database.close();
+  }
 
   // Shared reporter still supports explicit states and metadata-only updates.
   const reporter = hooks.SessionStart[0].hooks[0].command.split(" ")[0];

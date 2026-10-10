@@ -87,11 +87,11 @@ pkgs.writeShellApplication {
           [ -n "$cwd" ] || cwd="''${PWD:-}"
         fi
         event="$(printf '%s' "$input" | jq -r '.hook_event_name // empty')" || exit 0
-        details="$(printf '%s' "$input" | jq -c --arg effort "''${CLAUDE_EFFORT:-}" '
+        details="$(printf '%s' "$input" | jq -c --arg agent "$agent" --arg effort "''${CLAUDE_EFFORT:-}" '
           # Subagents share the session_id but may differ in effort and permission mode.
           if (.agent_id // "") != "" then {} else {
             model: (.model // .to_model),
-            effort: (.effort.level // (if $effort == "" then null else $effort end)),
+            effort: (.effort.level // (if $agent != "claude" or $effort == "" then null else $effort end)),
             permission_mode,
             session_title,
             transcript_path
@@ -130,6 +130,15 @@ pkgs.writeShellApplication {
       if [ "$state" = ended ]; then
         rm -f "$file"
         return 0
+      fi
+
+      # Codex hooks omit effort and title. Read just this session's local
+      # metadata, with a hard time limit; failures must not suppress status.
+      if [ "$agent" = codex ] && ! "$have_session" &&
+        [ "$(printf '%s' "$input" | jq -r '.agent_id // empty')" = "" ]; then
+        fallback="$(timeout 0.5s ${pkgs.python3}/bin/python3 ${../scripts/codex-status-details.py} "$session_id")" || fallback='{}'
+        details="$(printf '%s' "$details" | jq -c --argjson fallback "$fallback" '
+          $fallback + with_entries(select(.value != null and .value != ""))')" || return 0
       fi
 
       # A corrupt or missing old file counts as empty.

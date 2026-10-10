@@ -166,6 +166,9 @@ A detail field keeps its last known value until a hook reports a new one.
 Hooks fired by subagents (the payload has `agent_id`) do not change the detail fields.
 These fields are null for agents that do not report them, such as those using `--session`.
 
+Codex hooks omit effort and session title, so Botille reads them from Codex's local database.
+Values refresh on each hook, retaining previous values or null when unavailable.
+
 States:
 
 - `idle`: the session started, or the agent finished its turn and is waiting for a prompt
