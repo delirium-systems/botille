@@ -7,6 +7,10 @@
   ...
 }:
 let
+  codexSettings = builtins.toJSON {
+    sandbox_mode = "danger-full-access";
+  };
+
   # Base Claude settings managed declaratively by Nix.
   # Keys defined here take priority over runtime values (deep merge).
   # Runtime-added keys (mcpServers, enabledPlugins, etc.) are preserved.
@@ -293,6 +297,43 @@ in
     else
       echo "$base" | ${pkgs.jq}/bin/jq . > "$settings"
     fi
+  '';
+
+  # Keep Codex config writable and preserve runtime settings and TOML comments.
+  # Nix-managed values take precedence, as with Claude settings above.
+  home.activation.codexSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    ${
+      pkgs.python3.withPackages (ps: [ ps.tomlkit ])
+    }/bin/python3 - ${lib.escapeShellArg codexSettings} <<'PY'
+    import json
+    import os
+    import sys
+    import tempfile
+    from collections.abc import MutableMapping
+    from pathlib import Path
+
+    import tomlkit
+
+    def merge(target, base):
+        for key, value in base.items():
+            if isinstance(value, dict) and isinstance(target.get(key), MutableMapping):
+                merge(target[key], value)
+            else:
+                target[key] = value
+
+    settings = Path(os.environ["CODEX_HOME"]) / "config.toml"
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    config = tomlkit.parse(settings.read_text()) if settings.exists() else tomlkit.document()
+    merge(config, json.loads(sys.argv[1]))
+    with tempfile.NamedTemporaryFile(mode="w", dir=settings.parent, delete=False) as output:
+        temporary = Path(output.name)
+        try:
+            output.write(tomlkit.dumps(config))
+            output.close()
+            temporary.replace(settings)
+        finally:
+            temporary.unlink(missing_ok=True)
+    PY
   '';
 
   programs = {
